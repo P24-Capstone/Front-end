@@ -13,7 +13,7 @@ export default function LoginPage() {
   const login = useAuthStore((state) => state.login)
   const router = useRouter()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError('')
 
@@ -34,9 +34,9 @@ export default function LoginPage() {
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
-      <div className="w-full max-w-sm border border-dashed border-gray-300 rounded-lg p-8">
-        <h1 className="text-2xl font-bold text-center mb-2">로그인</h1>
-        <p className="text-base font-semibold mb-6">
+      <div className="w-full max-w-sm">
+        <h1 className="text-2xl font-bold text-center mb-5">로그인</h1>
+        <p className="text-base font-semibold mb-8">
           이메일과 비밀번호를<br />입력해주세요.
         </p>
 
@@ -73,8 +73,9 @@ export default function LoginPage() {
               />
               자동 로그인
             </label>
-            <div className="flex gap-3 text-gray-500 text-xs">
+            <div className="flex items-center gap-2 text-gray-500 text-xs">
               <button type="button" className="hover:text-gray-700">이메일 확인</button>
+              <span className="w-px h-3 bg-gray-300" />
               <button type="button" className="hover:text-gray-700">비밀번호 재설정</button>
             </div>
           </div>

@@ -44,7 +44,7 @@ export default function SignupPage() {
     agreements.terms &&
     agreements.privacy
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!isFormValid) return
 

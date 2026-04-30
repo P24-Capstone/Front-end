@@ -50,28 +50,30 @@ export default function GroupsPage() {
       <main className="flex-1 px-4 py-6">
         <h1 className="text-lg font-bold mb-4">내 모임</h1>
 
-        <div className="grid grid-cols-3 gap-3">
-          {/* 새 모임 만들기 */}
-          <button className="aspect-square flex flex-col items-center justify-center gap-1 border-2 border-blue-400 rounded-xl bg-blue-50 text-blue-500">
-            <span className="text-3xl font-light leading-none">+</span>
-            <span className="text-xs text-center leading-tight">새 모임<br />만들기</span>
-          </button>
+        <div className="max-w-[700px] mx-auto">
+          <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,110px)] justify-center">
+            {/* 새 모임 만들기 */}
+            <button className="aspect-square flex flex-col items-center justify-center gap-1 border-2 border-blue-400 rounded-xl bg-blue-50 text-blue-500">
+              <span className="text-3xl font-light leading-none">+</span>
+              <span className="text-xs text-center leading-tight">새 모임<br />만들기</span>
+            </button>
 
-          {/* 모임 카드 목록 */}
-          {groups.map((group) => (
-            <div
-              key={group.id}
-              className="aspect-square flex flex-col rounded-xl overflow-hidden border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
-            >
-              <div className="flex-1 bg-gray-100 flex items-center justify-center text-3xl">
-                🍐
+            {/* 모임 카드 목록 */}
+            {groups.map((group) => (
+              <div
+                key={group.id}
+                className="aspect-square flex flex-col rounded-xl overflow-hidden border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
+              >
+                <div className="flex-1 bg-gray-100 flex items-center justify-center text-3xl">
+                  🍐
+                </div>
+                <div className="p-1.5">
+                  <p className="text-xs font-medium truncate">{group.name}</p>
+                  <p className="text-xs text-gray-400">모임원 {group.memberCount}명</p>
+                </div>
               </div>
-              <div className="p-1.5">
-                <p className="text-xs font-medium truncate">{group.name}</p>
-                <p className="text-xs text-gray-400">모임원 {group.memberCount}명</p>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </main>
     </div>

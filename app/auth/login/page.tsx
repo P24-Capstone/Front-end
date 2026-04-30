@@ -17,26 +17,26 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
 
-    // TODO: 백엔드 API 연결 시 아래 주석을 해제하고 임시 코드를 삭제하세요
-    // const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ userEmail, userPw }),
-    // })
-    // const data = await res.json()
-    // if (!res.ok) { setError('이메일 또는 비밀번호가 올바르지 않습니다.'); return }
-    // login({ id: '', email: userEmail, name: '' }, data.data)
-
-    // 임시: 바로 로그인 처리 (백엔드 연결 전까지 사용)
-    login({ id: '1', email: userEmail, name: '테스트유저' }, 'temp-token')
-    router.push('/groups')
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail, userPw }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError('이메일 또는 비밀번호가 올바르지 않습니다.'); return }
+      login({ id: '', email: userEmail, name: '' }, data.data)
+      router.push('/groups')
+    } catch {
+      setError('서버에 연결할 수 없습니다.')
+    }
   }
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-bold text-center mb-5">로그인</h1>
-        <p className="text-base font-semibold mb-8">
+        <p className="text-base font-semibold mb-10">
           이메일과 비밀번호를<br />입력해주세요.
         </p>
 

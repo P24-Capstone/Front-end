@@ -26,12 +26,14 @@ export default function SignupPage() {
   }
 
   const handleAllAgree = (checked: boolean) => {
-    setAgreements({ all: checked, terms: checked, privacy: checked, marketing: checked })
+    setAgreements({ ...agreements, all: checked, terms: checked, privacy: checked })
   }
 
   const handleAgree = (key: keyof typeof agreements, checked: boolean) => {
     const next = { ...agreements, [key]: checked }
-    next.all = next.terms && next.privacy && next.marketing
+    if (key === 'terms' || key === 'privacy') {
+      next.all = next.terms && next.privacy
+    }
     setAgreements(next)
   }
 
@@ -48,20 +50,22 @@ export default function SignupPage() {
     e.preventDefault()
     if (!isFormValid) return
 
-    // TODO: 백엔드 API 연결 시 아래 주석을 해제하고 임시 코드를 삭제하세요
-    // const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/signup`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({
-    //     userEmail: form.userEmail,
-    //     userPw: form.userPw,
-    //     userName: form.userName,
-    //     userTel: form.userTel,
-    //   }),
-    // })
-    // if (!res.ok) return
-
-    router.push('/auth/login')
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userEmail: form.userEmail,
+          userPw: form.userPw,
+          userName: form.userName,
+          userTel: form.userTel,
+        }),
+      })
+      if (!res.ok) return
+      router.push('/auth/login')
+    } catch {
+      // 서버 연결 실패 시 아무 동작 안 함
+    }
   }
 
   return (

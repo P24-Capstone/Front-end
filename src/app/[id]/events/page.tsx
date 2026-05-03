@@ -1,102 +1,97 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { useParams, useRouter } from 'next/navigation';
-import api from '@/lib/api';
+import { useState } from 'react';
 
-interface Team {
-  teamId: string;
-  teamName: string;
-  teamImg: string;
-  teamIntro: string;
-  teamCategory: string;
-  currentMember: number;
-  maxMembers: number;
-  code: string;
+type TabType = '다가오는 일정' | '지난 일정';
+
+interface ScheduleEvent {
+  id: string;
+  title: string;
+  month: string;
+  dateNum: string;
+  dateDay: string;
 }
 
-async function fetchGroup(id: string): Promise<Team> {
-  const { data } = await api.get(`/api/groups/${id}`);
-  return data.data;
-}
+const UPCOMING: ScheduleEvent[] = [
+  { id: '1', title: '독서 모임 정기 모임', month: '4', dateNum: '12', dateDay: '수요일' },
+  { id: '2', title: '감상문 발표의 날', month: '4', dateNum: '20', dateDay: '목요일' },
+  { id: '3', title: '이달의 책 선정 투표', month: '4', dateNum: '27', dateDay: '목요일' },
+  { id: '4', title: '5월 정기 모임', month: '5', dateNum: '17', dateDay: '월요일' },
+  { id: '5', title: '야외 독서 모임', month: '6', dateNum: '28', dateDay: '수요일' },
+];
 
-export default function GroupDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const router = useRouter();
+const PAST: ScheduleEvent[] = [
+  { id: '4', title: '3월 정기 모임', month: '3', dateNum: '05', dateDay: '화요일' },
+];
 
-  const { data: group, isLoading, isError } = useQuery({
-    queryKey: ['group', id],
-    queryFn: () => fetchGroup(id),
-    enabled: !!id,
-  });
+export default function EventsPage() {
+  const [tab, setTab] = useState<TabType>('다가오는 일정');
 
-  if (isLoading) {
-    return (
-      <main className="max-w-2xl mx-auto px-4 py-10 space-y-4">
-        <div className="h-8 w-48 bg-zinc-100 rounded animate-pulse" />
-        <div className="h-4 w-24 bg-zinc-100 rounded animate-pulse" />
-        <div className="h-32 bg-zinc-100 rounded-xl animate-pulse" />
-      </main>
-    );
-  }
-
-  if (isError || !group) {
-    return (
-      <main className="max-w-2xl mx-auto px-4 py-10 text-center">
-        <p className="text-zinc-500">모임 정보를 불러오지 못했습니다.</p>
-        <button
-          onClick={() => router.back()}
-          className="mt-4 text-sm text-zinc-400 underline"
-        >
-          돌아가기
-        </button>
-      </main>
-    );
-  }
+  const events = tab === '다가오는 일정' ? UPCOMING : PAST;
 
   return (
-    <main className="max-w-2xl mx-auto px-4 py-10">
-      <button
-        onClick={() => router.back()}
-        className="mb-6 text-sm text-zinc-400 hover:text-zinc-700"
-      >
-        ← 목록으로
-      </button>
+    <div className="space-y-4">
+      {/* 서브 탭 - 중앙정렬 */}
+      <div className="flex justify-center border-b border-zinc-200 -mx-4 px-4">
+        {(['다가오는 일정', '지난 일정'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`pb-2.5 mx-5 text-[13px] font-medium transition-colors whitespace-nowrap ${
+              tab === t
+                ? 'text-zinc-900 border-b-2 border-zinc-900 -mb-px'
+                : 'text-zinc-400'
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
 
-      <div className="flex items-center gap-4 mb-6">
-        {group.teamImg ? (
-          <img src={group.teamImg} alt={group.teamName} className="w-16 h-16 rounded-full object-cover" />
-        ) : (
-          <div className="w-16 h-16 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-500 text-xl font-bold">
-            {group.teamName[0]}
+      {/* 일정 목록 */}
+      <div className="pt-1">
+        {events.length === 0 && (
+          <p className="text-center text-[13px] text-zinc-400 py-10">일정이 없습니다.</p>
+        )}
+
+        {events.length > 0 && (
+          <div className="relative">
+            {/* 단일 연속 타임라인 선 */}
+            {events.length > 1 && (
+              <div className="absolute left-[18px] top-[40px] bottom-[28px] w-px bg-zinc-200" />
+            )}
+
+            {events.map((event, index) => {
+              const isFirstOfMonth = index === 0 || events[index - 1].month !== event.month;
+              return (
+                <div key={event.id} className="flex gap-3 mb-4">
+                  {/* 월 레이블 */}
+                  <div className="relative z-10 flex flex-col items-center w-9 shrink-0">
+                    {isFirstOfMonth ? (
+                      <div className="flex flex-col items-center bg-white">
+                        <span className="text-[22px] font-bold leading-none text-zinc-800">{event.month}</span>
+                        <span className="text-[11px] text-zinc-400 mt-0.5">월</span>
+                      </div>
+                    ) : (
+                      <div className="h-[34px]" />
+                    )}
+                  </div>
+
+                  {/* 카드 */}
+                  <div className="flex-1">
+                    <div className="bg-white border border-zinc-200 rounded-xl px-4 py-3.5 shadow-sm">
+                      <p className="text-[12px] font-semibold text-blue-500">
+                        {event.dateNum}일 {event.dateDay}
+                      </p>
+                      <p className="text-[14px] font-semibold text-zinc-900 mt-1">{event.title}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
-        <div>
-          <h1 className="text-2xl font-bold">{group.teamName}</h1>
-          <p className="text-sm text-zinc-400">{group.teamCategory}</p>
-        </div>
       </div>
-
-      <div className="border border-zinc-200 rounded-xl p-6 space-y-4">
-        <div>
-          <p className="text-xs text-zinc-400 mb-1">소개</p>
-          <p className="text-sm text-zinc-700 leading-relaxed">{group.teamIntro}</p>
-        </div>
-        <div className="flex gap-6">
-          <div>
-            <p className="text-xs text-zinc-400 mb-1">인원</p>
-            <p className="text-sm font-medium">{group.currentMember} / {group.maxMembers}명</p>
-          </div>
-          <div>
-            <p className="text-xs text-zinc-400 mb-1">초대코드</p>
-            <p className="text-sm font-mono font-medium">{group.code}</p>
-          </div>
-        </div>
-      </div>
-
-      <button className="mt-6 w-full py-3 bg-black text-white rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors">
-        모임 참가하기
-      </button>
-    </main>
+    </div>
   );
 }

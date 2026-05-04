@@ -11,7 +11,7 @@ export default async function GroupLayout({
   const { id } = await params;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm">
+    <div className="w-full min-h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm">
       <GroupHeader />
       <GroupNav groupId={id} />
       <main className="flex-1 overflow-y-auto px-4 py-5">

@@ -66,7 +66,7 @@ export default function EventDetailPage() {
               d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
           </svg>
           <span className="text-[14px] text-zinc-700 break-words">
-            <span className="font-semibold">{event.memberCount}명</span>
+            <span>{event.memberCount}명</span>
             <span className="text-zinc-400 ml-1">({event.members.join(', ')})</span>
           </span>
         </div>

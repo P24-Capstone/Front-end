@@ -17,6 +17,12 @@ const TABS = [
 export default function GroupNav({ groupId }: { groupId: string }) {
   const pathname = usePathname();
 
+  const segments = pathname.split('/');
+  const isDetailPage =
+    segments.length === 4 &&
+    (pathname.includes('/events/') || pathname.includes('/notices/'));
+  if (isDetailPage) return null;
+
   return (
     <nav className="flex overflow-x-auto border-b border-zinc-100 bg-white" style={{ scrollbarWidth: 'none' }}>
       {TABS.map((tab) => {

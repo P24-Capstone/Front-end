@@ -1,37 +1,21 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { UPCOMING, PAST } from './_data';
 
 type TabType = '다가오는 일정' | '지난 일정';
 
-interface ScheduleEvent {
-  id: string;
-  title: string;
-  month: string;
-  dateNum: string;
-  dateDay: string;
-}
-
-const UPCOMING: ScheduleEvent[] = [
-  { id: '1', title: '독서 모임 정기 모임', month: '4', dateNum: '12', dateDay: '수요일' },
-  { id: '2', title: '감상문 발표의 날', month: '4', dateNum: '20', dateDay: '목요일' },
-  { id: '3', title: '이달의 책 선정 투표', month: '4', dateNum: '27', dateDay: '목요일' },
-  { id: '4', title: '5월 정기 모임', month: '5', dateNum: '17', dateDay: '월요일' },
-  { id: '5', title: '야외 독서 모임', month: '6', dateNum: '28', dateDay: '수요일' },
-];
-
-const PAST: ScheduleEvent[] = [
-  { id: '4', title: '3월 정기 모임', month: '3', dateNum: '05', dateDay: '화요일' },
-];
-
 export default function EventsPage() {
+  const { id } = useParams<{ id: string }>();
   const [tab, setTab] = useState<TabType>('다가오는 일정');
 
   const events = tab === '다가오는 일정' ? UPCOMING : PAST;
 
   return (
     <div className="space-y-4">
-      {/* 서브 탭 - 중앙정렬 */}
+      {/* 서브 탭 */}
       <div className="flex justify-center border-b border-zinc-200 -mx-4 px-4">
         {(['다가오는 일정', '지난 일정'] as const).map((t) => (
           <button
@@ -56,7 +40,6 @@ export default function EventsPage() {
 
         {events.length > 0 && (
           <div className="relative">
-            {/* 단일 연속 타임라인 선 */}
             {events.length > 1 && (
               <div className="absolute left-[18px] top-[40px] bottom-[28px] w-px bg-zinc-200" />
             )}
@@ -78,14 +61,14 @@ export default function EventsPage() {
                   </div>
 
                   {/* 카드 */}
-                  <div className="flex-1">
-                    <div className="bg-white border border-zinc-200 rounded-xl px-4 py-3.5 shadow-sm">
+                  <Link href={`/${id}/events/${event.id}`} className="flex-1">
+                    <div className="bg-white border border-zinc-200 rounded-xl px-4 py-3.5 shadow-sm active:bg-zinc-50 transition-colors">
                       <p className="text-[12px] font-semibold text-blue-500">
                         {event.dateNum}일 {event.dateDay}
                       </p>
                       <p className="text-[14px] font-semibold text-zinc-900 mt-1">{event.title}</p>
                     </div>
-                  </div>
+                  </Link>
                 </div>
               );
             })}

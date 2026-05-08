@@ -20,7 +20,7 @@ export default function GroupNav({ groupId }: { groupId: string }) {
   const segments = pathname.split('/');
   const isDetailPage =
     segments.length === 4 &&
-    (pathname.includes('/events/') || pathname.includes('/notices/'));
+    (pathname.includes('/events/') || pathname.includes('/notices/') || pathname.includes('/votes/'));
   if (isDetailPage) return null;
 
   return (

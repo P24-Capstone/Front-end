@@ -64,15 +64,6 @@ export const NOTICES: Notice[] = [
   },
 ];
 
-function sortNotices(notices: Notice[], sort: SortType): Notice[] {
-  const pinned = notices.filter((n) => n.isPinned);
-  const rest = notices.filter((n) => !n.isPinned);
-  const sorted = [...rest].sort((a, b) =>
-    sort === '제목순' ? a.title.localeCompare(b.title) : b.date.localeCompare(a.date)
-  );
-  return [...pinned, ...sorted];
-}
-
 function PinIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -82,14 +73,52 @@ function PinIcon() {
   );
 }
 
+function NoticeItem({ notice, id }: { notice: Notice; id: string }) {
+  return (
+    <Link
+      href={`/${id}/notices/${notice.id}`}
+      className="flex items-start justify-between py-3 border-b border-zinc-100 gap-2"
+    >
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {notice.isRequired && (
+            <span className="text-[11px] font-semibold text-white bg-[#3B3EFF] rounded-full px-2 py-0.5 shrink-0">
+              필독
+            </span>
+          )}
+          <p className="text-[14px] font-medium text-zinc-900">{notice.title}</p>
+        </div>
+        <p className="text-[12px] text-zinc-400 mt-1">{notice.date}</p>
+      </div>
+      {notice.isPinned && (
+        <div className="shrink-0 mt-0.5">
+          <PinIcon />
+        </div>
+      )}
+    </Link>
+  );
+}
+
 export default function NoticesPage() {
   const { id } = useParams<{ id: string }>();
   const [sort, setSort] = useState<SortType>('최근순');
 
-  const sorted = sortNotices(NOTICES, sort);
+  const pinned = NOTICES.filter((n) => n.isPinned);
+  const rest = NOTICES.filter((n) => !n.isPinned).sort((a, b) =>
+    sort === '제목순' ? a.title.localeCompare(b.title) : b.date.localeCompare(a.date)
+  );
 
   return (
-    <div>
+    <div className="pt-2">
+      {/* 고정 공지 */}
+      {pinned.length > 0 && (
+        <div className="mb-4">
+          {pinned.map((notice) => (
+            <NoticeItem key={notice.id} notice={notice} id={id} />
+          ))}
+        </div>
+      )}
+
       {/* 정렬 */}
       <div className="flex items-center justify-center mb-1 pb-3 border-b border-zinc-100">
         <button
@@ -107,31 +136,10 @@ export default function NoticesPage() {
         </button>
       </div>
 
-      {/* 공지 목록 */}
+      {/* 일반 공지 목록 */}
       <div>
-        {sorted.map((notice) => (
-          <Link
-            key={notice.id}
-            href={`/${id}/notices/${notice.id}`}
-            className="flex items-start justify-between py-4 border-b border-zinc-100 gap-2"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {notice.isRequired && (
-                  <span className="text-[11px] font-semibold text-white bg-blue-500 rounded-full px-2 py-0.5 shrink-0">
-                    필독
-                  </span>
-                )}
-                <p className="text-[14px] font-medium text-zinc-900">{notice.title}</p>
-              </div>
-              <p className="text-[12px] text-zinc-400 mt-1">{notice.date}</p>
-            </div>
-            {notice.isPinned && (
-              <div className="shrink-0 mt-0.5">
-                <PinIcon />
-              </div>
-            )}
-          </Link>
+        {rest.map((notice) => (
+          <NoticeItem key={notice.id} notice={notice} id={id} />
         ))}
       </div>
     </div>

@@ -16,7 +16,7 @@ export default function EventsPage() {
   return (
     <div className="space-y-4">
       {/* 서브 탭 */}
-      <div className="flex justify-center border-b border-zinc-200 -mx-4 px-4">
+      <div className="flex justify-center border-b border-zinc-200 -mx-4 px-4 sticky top-0 z-10 bg-white">
         {(['다가오는 일정', '지난 일정'] as const).map((t) => (
           <button
             key={t}

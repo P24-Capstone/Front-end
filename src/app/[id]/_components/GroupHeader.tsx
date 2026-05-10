@@ -11,6 +11,7 @@ export default function GroupHeader() {
   if (segments.length === 4) {
     if (pathname.includes('/events/')) backHref = `/${segments[1]}/events`;
     else if (pathname.includes('/notices/')) backHref = `/${segments[1]}/notices`;
+    else if (pathname.includes('/votes/')) backHref = `/${segments[1]}/votes`;
   }
 
   return (

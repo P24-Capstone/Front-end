@@ -11,10 +11,10 @@ export default async function GroupLayout({
   const { id } = await params;
 
   return (
-    <div className="w-full min-h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm">
+    <div className="w-full h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm overflow-hidden">
       <GroupHeader />
       <GroupNav groupId={id} />
-      <main className="flex-1 overflow-y-auto px-4 py-5">
+      <main className="flex-1 overflow-y-auto px-4 pt-0 pb-5 hide-scrollbar" style={{ scrollbarWidth: 'none' }}>
         {children}
       </main>
       <footer className="py-3 px-4 border-t border-zinc-100 text-center">

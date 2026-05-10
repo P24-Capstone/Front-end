@@ -1,102 +1,136 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { useParams, useRouter } from 'next/navigation';
-import api from '@/lib/api';
+import { useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { MINUTES, type Minute } from './_data';
 
-interface Team {
-  teamId: string;
-  teamName: string;
-  teamImg: string;
-  teamIntro: string;
-  teamCategory: string;
-  currentMember: number;
-  maxMembers: number;
-  code: string;
+type SortType = '생성일순' | '이름순' | '최근수정일순';
+
+const isLeader = true; // TODO: from auth
+
+function getGroup(dateStr: string): '지난 7일' | '지난 30일' | '이전' {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (diff <= 7) return '지난 7일';
+  if (diff <= 30) return '지난 30일';
+  return '이전';
 }
 
-async function fetchGroup(id: string): Promise<Team> {
-  const { data } = await api.get(`/api/groups/${id}`);
-  return data.data;
+function MicIcon() {
+  return (
+    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="23" strokeLinecap="round" strokeLinejoin="round" />
+      <line x1="8" y1="23" x2="16" y2="23" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
-export default function GroupDetailPage() {
+function KebabIcon() {
+  return (
+    <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24" className="text-zinc-300">
+      <circle cx="12" cy="5" r="1.5" />
+      <circle cx="12" cy="12" r="1.5" />
+      <circle cx="12" cy="19" r="1.5" />
+    </svg>
+  );
+}
+
+function MinuteCard({ minute, groupId }: { minute: Minute; groupId: string }) {
+  return (
+    <Link href={`/${groupId}/minutes/${minute.id}`}>
+      <div className="bg-white rounded-lg px-4 py-3.5 flex items-center gap-3 active:bg-zinc-50 transition-colors">
+        <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center shrink-0">
+          <MicIcon />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap gap-1 mb-1.5">
+            {minute.tags.map((t) => (
+              <span key={t.label} className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${t.className}`}>
+                {t.label}
+              </span>
+            ))}
+          </div>
+          <p className="text-[14px] font-medium text-zinc-800 truncate">{minute.title}</p>
+        </div>
+        <button onClick={(e) => e.preventDefault()} className="shrink-0 p-1">
+          <KebabIcon />
+        </button>
+      </div>
+    </Link>
+  );
+}
+
+export default function MinutesPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
+  const [sort, setSort] = useState<SortType>('생성일순');
 
-  const { data: group, isLoading, isError } = useQuery({
-    queryKey: ['group', id],
-    queryFn: () => fetchGroup(id),
-    enabled: !!id,
+  const sorted = [...MINUTES].sort((a, b) => {
+    if (sort === '이름순') return a.title.localeCompare(b.title, 'ko');
+    if (sort === '최근수정일순') return b.updatedAt.localeCompare(a.updatedAt);
+    return b.createdAt.localeCompare(a.createdAt);
   });
 
-  if (isLoading) {
-    return (
-      <main className="max-w-2xl mx-auto px-4 py-10 space-y-4">
-        <div className="h-8 w-48 bg-zinc-100 rounded animate-pulse" />
-        <div className="h-4 w-24 bg-zinc-100 rounded animate-pulse" />
-        <div className="h-32 bg-zinc-100 rounded-xl animate-pulse" />
-      </main>
-    );
-  }
-
-  if (isError || !group) {
-    return (
-      <main className="max-w-2xl mx-auto px-4 py-10 text-center">
-        <p className="text-zinc-500">모임 정보를 불러오지 못했습니다.</p>
-        <button
-          onClick={() => router.back()}
-          className="mt-4 text-sm text-zinc-400 underline"
-        >
-          돌아가기
-        </button>
-      </main>
-    );
-  }
+  const dateKey = sort === '최근수정일순' ? 'updatedAt' : 'createdAt';
+  const GROUP_LABELS = ['지난 7일', '지난 30일', '이전'] as const;
+  const groups = GROUP_LABELS.map((label) => ({
+    label,
+    items: sorted.filter((m) => getGroup(m[dateKey]) === label),
+  })).filter((g) => g.items.length > 0);
 
   return (
-    <main className="max-w-2xl mx-auto px-4 py-10">
-      <button
-        onClick={() => router.back()}
-        className="mb-6 text-sm text-zinc-400 hover:text-zinc-700"
-      >
-        ← 목록으로
-      </button>
+    <div className="flex flex-col min-h-full">
+      <div className="flex-1 -mx-4 -mb-5 bg-zinc-100 px-4 pt-4 pb-28">
+        {/* 정렬 */}
+        <div className="flex items-center justify-center mb-4">
+          {(['생성일순', '이름순', '최근수정일순'] as const).map((s, i) => (
+            <span key={s} className="flex items-center">
+              {i > 0 && <span className="text-zinc-300 text-[13px]">|</span>}
+              <button
+                onClick={() => setSort(s)}
+                className={`text-[13px] px-2 ${sort === s ? 'font-semibold text-zinc-900' : 'text-zinc-400'}`}
+              >
+                {s}
+              </button>
+            </span>
+          ))}
+        </div>
 
-      <div className="flex items-center gap-4 mb-6">
-        {group.teamImg ? (
-          <img src={group.teamImg} alt={group.teamName} className="w-16 h-16 rounded-full object-cover" />
+        {/* 목록 */}
+        {sort === '이름순' ? (
+          <div className="flex flex-col gap-3">
+            {sorted.map((m) => <MinuteCard key={m.id} minute={m} groupId={id} />)}
+          </div>
         ) : (
-          <div className="w-16 h-16 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-500 text-xl font-bold">
-            {group.teamName[0]}
-          </div>
+          groups.map(({ label, items }) => (
+            <div key={label} className="mb-5">
+              <p className="text-[12px] font-medium text-zinc-400 mb-2 px-1">{label}</p>
+              <div className="flex flex-col gap-3">
+                {items.map((m) => <MinuteCard key={m.id} minute={m} groupId={id} />)}
+              </div>
+            </div>
+          ))
         )}
-        <div>
-          <h1 className="text-2xl font-bold">{group.teamName}</h1>
-          <p className="text-sm text-zinc-400">{group.teamCategory}</p>
-        </div>
-      </div>
 
-      <div className="border border-zinc-200 rounded-xl p-6 space-y-4">
-        <div>
-          <p className="text-xs text-zinc-400 mb-1">소개</p>
-          <p className="text-sm text-zinc-700 leading-relaxed">{group.teamIntro}</p>
-        </div>
-        <div className="flex gap-6">
-          <div>
-            <p className="text-xs text-zinc-400 mb-1">인원</p>
-            <p className="text-sm font-medium">{group.currentMember} / {group.maxMembers}명</p>
-          </div>
-          <div>
-            <p className="text-xs text-zinc-400 mb-1">초대코드</p>
-            <p className="text-sm font-mono font-medium">{group.code}</p>
-          </div>
-        </div>
-      </div>
+        {MINUTES.length === 0 && (
+          <p className="text-center text-[13px] text-zinc-400 py-10">회의록이 없습니다.</p>
+        )}
 
-      <button className="mt-6 w-full py-3 bg-black text-white rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors">
-        모임 참가하기
-      </button>
-    </main>
+        {/* FAB */}
+        {isLeader && (
+          <Link
+            href={`/${id}/minutes/create`}
+            className="fixed bottom-6 bg-[#3B3EFF] text-white text-[13px] font-semibold px-4 py-2.5 rounded-full shadow-lg flex items-center gap-1.5"
+            style={{ right: 'max(1rem, calc((100vw - 390px) / 2 + 1rem))' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+            </svg>
+            새 회의록
+          </Link>
+        )}
+      </div>
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { NOTICES } from '../page';
+import { NOTICES } from '../_data';
 
 export default function NoticeDetailPage() {
   const { noticeId } = useParams<{ noticeId: string }>();

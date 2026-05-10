@@ -19,12 +19,12 @@ export default function NoticeDetailPage() {
   }
 
   return (
-    <div className="px-1">
+    <div className="pt-5 px-1">
       {/* 제목 */}
       <div className="pb-5 border-b border-zinc-100">
         <div className="flex items-center gap-2 mb-2">
           {notice.isRequired && (
-            <span className="text-[11px] font-semibold text-white bg-blue-500 rounded-full px-2 py-0.5 shrink-0">
+            <span className="text-[11px] font-semibold text-white bg-[#3B3EFF] rounded-full px-2 py-0.5 shrink-0">
               필독
             </span>
           )}

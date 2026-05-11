@@ -3,16 +3,21 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
+
 const GROUP_COLORS = ['#fde68a', '#bfdbfe', '#bbf7d0', '#fecaca', '#ddd6fe', '#fed7aa'];
 
-const MY_GROUPS = [
-  { id: 'g1', name: '책 읽는 모임', members: 5 },
-  { id: 'g2', name: '운동 클럽', members: 8 },
-  { id: 'g3', name: '코딩 스터디', members: 12 },
-  { id: 'g4', name: '사진 모임', members: 6 },
-  { id: 'g5', name: '영어 회화', members: 9 },
-  { id: 'g6', name: '독서 토론', members: 7 },
-];
+interface TeamResponse {
+  teamId: string;
+  teamName: string;
+  teamImg: string;
+  teamInfo: string;
+  teamCategory: string;
+  currentMember: number;
+  maxMembers: number;
+  code: string;
+}
 
 const MISSIONS = [
   { id: 1, status: '진행중', statusColor: '#22c55e', title: '책 읽고 인증하기', subtitle: '책 사진찍고 인증하기', deadline: 3 },
@@ -23,6 +28,14 @@ const MISSIONS = [
 
 export default function MainPage() {
   const [missionTab, setMissionTab] = useState<'진행중' | '완료'>('진행중');
+
+  const { data: myTeams, isLoading } = useQuery({
+    queryKey: ['myTeams'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/teams/my');
+      return data.data as TeamResponse[];
+    }
+  });
 
   return (
     <div className="min-h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm">
@@ -63,21 +76,27 @@ export default function MainPage() {
             </Link>
 
             {/* 모임 카드 */}
-            {MY_GROUPS.map((group, i) => (
-              <Link key={group.id} href={`${group.id}/home`}>
-                <div className="aspect-square rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
-                  <div
-                    className="w-full h-full flex items-end p-2"
-                    style={{ backgroundColor: GROUP_COLORS[i % GROUP_COLORS.length] }}
-                  >
-                    <div className="w-full">
-                      <p className="text-[11px] font-semibold text-zinc-800 leading-tight truncate">{group.name}</p>
-                      <p className="text-[10px] text-zinc-500">참여 인원 {group.members}명</p>
+            {isLoading ? (
+              <div className="col-span-3 text-center text-xs text-zinc-500 py-4">불러오는 중...</div>
+            ) : myTeams && myTeams.length > 0 ? (
+              myTeams.map((group, i) => (
+                <Link key={group.teamId} href={`/${group.teamId}/home`}>
+                  <div className="aspect-square rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
+                    <div
+                      className="w-full h-full flex items-end p-2"
+                      style={{ backgroundColor: GROUP_COLORS[i % GROUP_COLORS.length] }}
+                    >
+                      <div className="w-full">
+                        <p className="text-[11px] font-semibold text-zinc-800 leading-tight truncate">{group.teamName}</p>
+                        <p className="text-[10px] text-zinc-500">참여 인원 {group.currentMember}명</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              ))
+            ) : (
+              <div className="col-span-3 text-center text-xs text-zinc-500 py-4">가입한 모임이 없습니다.</div>
+            )}
           </div>
         </section>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 
 interface MemberResponse {
@@ -15,9 +15,33 @@ interface MemberResponse {
   teamId: string;
 }
 
+const STATE_LABELS: Record<string, string> = {
+  A: '활동 중',
+  W: '가입 대기',
+  R: '가입 거절',
+};
+
+const STATE_DOT: Record<string, string> = {
+  A: 'bg-green-500',
+  W: 'bg-yellow-400',
+  R: 'bg-red-500',
+};
+
 export default function MemberDetailPage() {
-  const { memberId } = useParams<{ memberId: string }>();
+  const { id, memberId } = useParams<{ id: string; memberId: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const { data: myMembership } = useQuery({
+    queryKey: ['members', 'me', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/members/me?teamId=${id}`);
+      return data.data as MemberResponse;
+    },
+    enabled: !!id,
+  });
+
+  const isLeader = myMembership?.memRole === 'L' && myMembership?.memState === 'A';
 
   const { data: member, isLoading } = useQuery({
     queryKey: ['member', memberId],
@@ -27,6 +51,29 @@ export default function MemberDetailPage() {
     },
     enabled: !!memberId,
   });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['members', id] });
+    queryClient.invalidateQueries({ queryKey: ['member', memberId] });
+  };
+
+  const approveMutation = useMutation({
+    mutationFn: () => api.patch(`/api/members/${memberId}/approve`),
+    onSuccess: () => {
+      invalidate();
+      router.back();
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: () => api.patch(`/api/members/${memberId}/reject`),
+    onSuccess: () => {
+      invalidate();
+      router.back();
+    },
+  });
+
+  const isPending = approveMutation.isPending || rejectMutation.isPending;
 
   if (isLoading) {
     return <div className="text-center py-20 text-zinc-500 text-sm">불러오는 중...</div>;
@@ -40,6 +87,8 @@ export default function MemberDetailPage() {
       </div>
     );
   }
+
+  const canActOnMember = isLeader && member.memState === 'W';
 
   return (
     <div className="pt-6 px-1">
@@ -62,19 +111,44 @@ export default function MemberDetailPage() {
 
       <div className="py-6 space-y-5">
         <div>
-          <p className="text-[12px] font-semibold text-zinc-400 mb-1">가입일</p>
+          <p className="text-[12px] font-semibold text-zinc-400 mb-1">가입 신청일</p>
           <p className="text-[14px] font-medium text-zinc-800">{member.regDtm}</p>
         </div>
+        {member.procDtm && (
+          <div>
+            <p className="text-[12px] font-semibold text-zinc-400 mb-1">처리일</p>
+            <p className="text-[14px] font-medium text-zinc-800">{member.procDtm}</p>
+          </div>
+        )}
         <div>
           <p className="text-[12px] font-semibold text-zinc-400 mb-1">상태</p>
           <div className="flex items-center gap-2 mt-1">
-            <span className="flex w-2 h-2 rounded-full bg-green-500"></span>
+            <span className={`flex w-2 h-2 rounded-full ${STATE_DOT[member.memState] ?? 'bg-zinc-400'}`} />
             <span className="text-[14px] font-medium text-zinc-800">
-              {member.memState === 'A' ? '활동 중' : member.memState}
+              {STATE_LABELS[member.memState] ?? member.memState}
             </span>
           </div>
         </div>
       </div>
+
+      {canActOnMember && (
+        <div className="flex gap-3 pt-2">
+          <button
+            onClick={() => rejectMutation.mutate()}
+            disabled={isPending}
+            className="flex-1 py-3 rounded-xl text-[14px] font-semibold border border-zinc-200 text-zinc-600 disabled:opacity-50 active:bg-zinc-50"
+          >
+            거절
+          </button>
+          <button
+            onClick={() => approveMutation.mutate()}
+            disabled={isPending}
+            className="flex-1 py-3 rounded-xl text-[14px] font-semibold bg-[#3B3EFF] text-white disabled:opacity-50 active:opacity-90"
+          >
+            승인
+          </button>
+        </div>
+      )}
     </div>
   );
 }

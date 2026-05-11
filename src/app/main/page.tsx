@@ -28,9 +28,52 @@ const MISSIONS = [
 type TabType = '내 모임' | '미션';
 type MissionFilter = '진행 중' | '완료';
 
+function MenuPopup({ onClose }: { onClose: () => void }) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div className="absolute top-[52px] right-4 z-50 bg-white rounded-xl shadow-xl w-[190px] overflow-hidden border border-zinc-100">
+        {/* 프로필 */}
+        <div className="flex items-center gap-2.5 px-3.5 py-3 border-b border-zinc-100">
+          <div className="w-8 h-8 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
+            <span className="text-[13px] font-bold text-white">김</span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[13px] font-bold text-zinc-900">김민준</p>
+            <p className="text-[11px] text-zinc-400 truncate">minjun@crew.kr</p>
+          </div>
+        </div>
+        {/* 마이페이지 */}
+        <Link href="/mypage" onClick={onClose} className="flex items-center gap-2.5 px-4 py-3 border-b border-zinc-100 hover:bg-zinc-50">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+          </svg>
+          <span className="text-[13px] font-medium text-zinc-800">마이페이지</span>
+        </Link>
+        {/* 프로필 수정 */}
+        <Link href="/mypage/edit" onClick={onClose} className="flex items-center gap-2.5 px-4 py-3 border-b border-zinc-100 hover:bg-zinc-50">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+          <span className="text-[13px] font-medium text-zinc-800">프로필 수정</span>
+        </Link>
+        {/* 로그아웃 */}
+        <button onClick={onClose} className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-zinc-50">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+          </svg>
+          <span className="text-[13px] font-medium text-red-500">로그아웃</span>
+        </button>
+      </div>
+    </>
+  );
+}
+
 export default function MainPage() {
   const [tab, setTab] = useState<TabType>('내 모임');
   const [missionFilter, setMissionFilter] = useState<MissionFilter>('진행 중');
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const { data: myTeams, isLoading } = useQuery({
     queryKey: ['myTeams'],
@@ -43,7 +86,8 @@ export default function MainPage() {
   const filteredMissions = MISSIONS.filter((m) => m.status === missionFilter);
 
   return (
-    <div className="w-full h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm overflow-hidden">
+    <div className="w-full h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm relative">
+      {menuOpen && <MenuPopup onClose={() => setMenuOpen(false)} />}
       {/* 헤더 */}
       <header className="flex items-center justify-between px-4 h-[52px] shrink-0 border-b border-zinc-100 bg-white">
         <span className="text-[17px] font-bold tracking-tight">CrewWise</span>
@@ -53,7 +97,7 @@ export default function MainPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </button>
-          <button className="p-1 text-zinc-700">
+          <button className="p-1 text-zinc-700" onClick={() => setMenuOpen(true)}>
             <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>

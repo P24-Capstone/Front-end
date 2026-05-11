@@ -3,7 +3,18 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { NOTICES, type Notice } from './_data';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
+
+interface NoticeResponse {
+  notiId: number;
+  notiTitle: string;
+  notiContent: string;
+  notiFix: string;
+  regDtm: string;
+  modDtm: string;
+  teamId: string;
+}
 
 type SortType = '최근순' | '제목순';
 
@@ -16,24 +27,27 @@ function PinIcon() {
   );
 }
 
-function NoticeItem({ notice, id }: { notice: Notice; id: string }) {
+function NoticeItem({ notice, id }: { notice: NoticeResponse; id: string }) {
+  const isPinned = notice.notiFix === 'Y';
+  const isRequired = notice.notiFix === 'Y'; // Treating fixed as required for now
+
   return (
     <Link
-      href={`/${id}/notices/${notice.id}`}
+      href={`/${id}/notices/${notice.notiId}`}
       className="flex items-start justify-between py-3 border-b border-zinc-100 gap-2"
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          {notice.isRequired && (
+          {isRequired && (
             <span className="text-[11px] font-semibold text-white bg-[#3B3EFF] rounded-full px-2 py-0.5 shrink-0">
               필독
             </span>
           )}
-          <p className="text-[14px] font-medium text-zinc-900">{notice.title}</p>
+          <p className="text-[14px] font-medium text-zinc-900">{notice.notiTitle}</p>
         </div>
-        <p className="text-[12px] text-zinc-400 mt-1">{notice.date}</p>
+        <p className="text-[12px] text-zinc-400 mt-1">{notice.regDtm.split(' ')[0]}</p>
       </div>
-      {notice.isPinned && (
+      {isPinned && (
         <div className="shrink-0 mt-0.5">
           <PinIcon />
         </div>
@@ -46,9 +60,23 @@ export default function NoticesPage() {
   const { id } = useParams<{ id: string }>();
   const [sort, setSort] = useState<SortType>('최근순');
 
-  const pinned = NOTICES.filter((n) => n.isPinned);
-  const rest = NOTICES.filter((n) => !n.isPinned).sort((a, b) =>
-    sort === '제목순' ? a.title.localeCompare(b.title) : b.date.localeCompare(a.date)
+  const { data: notices, isLoading } = useQuery({
+    queryKey: ['notices', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/notices?teamId=${id}`);
+      return data.data as NoticeResponse[];
+    },
+    enabled: !!id,
+  });
+
+  if (isLoading) {
+    return <div className="text-center py-10 text-zinc-500 text-sm">불러오는 중...</div>;
+  }
+
+  const safeNotices = notices || [];
+  const pinned = safeNotices.filter((n) => n.notiFix === 'Y');
+  const rest = safeNotices.filter((n) => n.notiFix !== 'Y').sort((a, b) =>
+    sort === '제목순' ? a.notiTitle.localeCompare(b.notiTitle) : b.regDtm.localeCompare(a.regDtm)
   );
 
   return (
@@ -57,7 +85,7 @@ export default function NoticesPage() {
       {pinned.length > 0 && (
         <div className="mb-4">
           {pinned.map((notice) => (
-            <NoticeItem key={notice.id} notice={notice} id={id} />
+            <NoticeItem key={notice.notiId} notice={notice} id={id} />
           ))}
         </div>
       )}
@@ -80,11 +108,24 @@ export default function NoticesPage() {
       </div>
 
       {/* 일반 공지 목록 */}
-      <div>
+      <div className="pb-20">
+        {rest.length === 0 && <div className="text-center py-10 text-zinc-500 text-sm">등록된 공지가 없습니다.</div>}
         {rest.map((notice) => (
-          <NoticeItem key={notice.id} notice={notice} id={id} />
+          <NoticeItem key={notice.notiId} notice={notice} id={id} />
         ))}
       </div>
+
+      {/* 글쓰기 플로팅 버튼 */}
+      <Link
+        href={`/${id}/notices/new`}
+        className="fixed bottom-[80px] right-6 w-12 h-12 bg-[#3B3EFF] rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-colors z-10 max-w-[390px]"
+        style={{ right: 'calc(50% - 195px + 24px)', left: 'auto' }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </Link>
     </div>
   );
 }

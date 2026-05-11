@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useHeaderSlotStore } from '@/store/headerSlot';
 
 const INPUT_CLS = 'w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-[14px] text-zinc-800 placeholder:text-zinc-300 outline-none focus:border-[#3B3EFF] transition-colors bg-white';
 const SECTION_LABEL = 'text-[13px] font-semibold text-zinc-600 mb-2 block';
@@ -12,6 +13,7 @@ const today = new Date().toISOString().split('T')[0];
 
 export default function VoteCreatePage() {
   const router = useRouter();
+  const { setPageHeader } = useHeaderSlotStore();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -31,6 +33,14 @@ export default function VoteCreatePage() {
     setOptionType(t);
     setOptions(options.map(() => ''));
   };
+
+  useEffect(() => {
+    setPageHeader({ title: '투표 생성하기', hideHamburger: true });
+    return () => setPageHeader(null);
+  }, [setPageHeader]);
+
+  const filledOptions = options.filter((o) => o.trim() !== '');
+  const isDisabled = !title.trim() || filledOptions.length < 2;
 
   return (
     <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-5">
@@ -191,8 +201,10 @@ export default function VoteCreatePage() {
 
       {/* 생성 버튼 */}
       <button
-        onClick={() => router.back()}
-        className="mx-1 border-2 border-transparent bg-[#3B3EFF] text-white text-[15px] font-semibold py-3.5 rounded-xl"
+        disabled={isDisabled}
+        className={`mx-1 text-[15px] font-semibold py-3.5 rounded-xl transition-colors ${
+          isDisabled ? 'bg-zinc-300 text-white' : 'bg-[#3B3EFF] text-white'
+        }`}
       >
         투표 생성
       </button>

@@ -8,7 +8,7 @@ interface Team {
   teamId: string;
   teamName: string;
   teamImg: string;
-  teamIntro: string;
+  teamInfo: string;
   teamCategory: string;
   currentMember: number;
   maxMembers: number;
@@ -16,7 +16,7 @@ interface Team {
 }
 
 async function fetchGroup(id: string): Promise<Team> {
-  const { data } = await api.get(`/api/groups/${id}`);
+  const { data } = await api.get(`/api/teams/${id}`);
   return data.data;
 }
 
@@ -80,7 +80,7 @@ export default function GroupDetailPage() {
       <div className="border border-zinc-200 rounded-xl p-6 space-y-4">
         <div>
           <p className="text-xs text-zinc-400 mb-1">소개</p>
-          <p className="text-sm text-zinc-700 leading-relaxed">{group.teamIntro}</p>
+          <p className="text-sm text-zinc-700 leading-relaxed">{group.teamInfo}</p>
         </div>
         <div className="flex gap-6">
           <div>

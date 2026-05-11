@@ -1,12 +1,25 @@
 'use client';
 
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useParams } from 'next/navigation';
 import { useHeaderSlotStore } from '@/store/headerSlot';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
 
 export default function GroupHeader() {
   const router = useRouter();
   const pathname = usePathname();
+  const params = useParams();
+  const id = params?.id as string;
   const { editSlot } = useHeaderSlotStore();
+
+  const { data: teamName } = useQuery({
+    queryKey: ['groupName', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/teams/${id}`);
+      return data.data.teamName as string;
+    },
+    enabled: !!id,
+  });
 
   const segments = pathname.split('/');
   let backHref = '/main';
@@ -25,7 +38,7 @@ export default function GroupHeader() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <span className="text-[17px] font-bold tracking-tight">모임명</span>
+        <span className="text-[17px] font-bold tracking-tight">{teamName || '모임명'}</span>
       </div>
       {editSlot ? (
         editSlot.editing ? (

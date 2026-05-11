@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 
 const GROUP_COLORS = ['#fde68a', '#bfdbfe', '#bbf7d0', '#fecaca', '#ddd6fe', '#fed7aa'];
@@ -28,7 +28,20 @@ const MISSIONS = [
 type TabType = '내 모임' | '미션';
 type MissionFilter = '진행 중' | '완료';
 
-function MenuPopup({ onClose }: { onClose: () => void }) {
+interface MenuPopupProps {
+  onClose: () => void;
+  name: string;
+  email: string;
+  initial: string;
+}
+
+function MenuPopup({ onClose, name, email, initial }: MenuPopupProps) {
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    window.location.href = '/auth/login';
+  };
+
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
@@ -36,11 +49,11 @@ function MenuPopup({ onClose }: { onClose: () => void }) {
         {/* 프로필 */}
         <div className="flex items-center gap-2.5 px-3.5 py-3 border-b border-zinc-100">
           <div className="w-8 h-8 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
-            <span className="text-[13px] font-bold text-white">김</span>
+            <span className="text-[13px] font-bold text-white">{initial}</span>
           </div>
           <div className="min-w-0">
-            <p className="text-[13px] font-bold text-zinc-900">김민준</p>
-            <p className="text-[11px] text-zinc-400 truncate">minjun@crew.kr</p>
+            <p className="text-[13px] font-bold text-zinc-900 truncate">{name}</p>
+            <p className="text-[11px] text-zinc-400 truncate">{email}</p>
           </div>
         </div>
         {/* 마이페이지 */}
@@ -59,7 +72,7 @@ function MenuPopup({ onClose }: { onClose: () => void }) {
           <span className="text-[13px] font-medium text-zinc-800">프로필 수정</span>
         </Link>
         {/* 로그아웃 */}
-        <button onClick={onClose} className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-zinc-50">
+        <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-zinc-50">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
           </svg>
@@ -70,10 +83,90 @@ function MenuPopup({ onClose }: { onClose: () => void }) {
   );
 }
 
+function JoinByCodeModal({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) {
+  const [code, setCode] = useState('');
+  const [nickname, setNickname] = useState('');
+
+  const joinMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('/api/members/join/code', { code, memNic: nickname });
+    },
+    onSuccess: () => {
+      alert('가입 신청이 완료되었습니다. 모임장의 승인을 기다려주세요!');
+      onSuccess();
+      onClose();
+    },
+    onError: (err: any) => {
+      alert(err?.response?.data?.message || '가입에 실패했습니다.');
+    }
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-2xl w-full max-w-[320px] p-5 shadow-xl">
+        <h3 className="text-[17px] font-bold text-zinc-900 mb-4">추천코드로 가입</h3>
+        
+        <div className="space-y-3 mb-5">
+          <div>
+            <label className="block text-[12px] font-medium text-zinc-600 mb-1">추천코드</label>
+            <input 
+              type="text" 
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="8자리 코드 입력"
+              className="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl text-[14px] outline-none focus:border-[#3B3EFF]"
+            />
+          </div>
+          <div>
+            <label className="block text-[12px] font-medium text-zinc-600 mb-1">사용할 닉네임</label>
+            <input 
+              type="text" 
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="모임에서 사용할 닉네임"
+              className="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl text-[14px] outline-none focus:border-[#3B3EFF]"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button 
+            onClick={onClose}
+            className="flex-1 h-11 bg-zinc-100 text-zinc-600 rounded-xl text-[14px] font-medium"
+          >
+            취소
+          </button>
+          <button 
+            onClick={() => joinMutation.mutate()}
+            disabled={!code.trim() || !nickname.trim() || joinMutation.isPending}
+            className="flex-1 h-11 bg-[#3B3EFF] text-white rounded-xl text-[14px] font-medium disabled:bg-zinc-300"
+          >
+            {joinMutation.isPending ? '가입 중...' : '가입하기'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MainPage() {
   const [tab, setTab] = useState<TabType>('내 모임');
   const [missionFilter, setMissionFilter] = useState<MissionFilter>('진행 중');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [joinModalOpen, setJoinModalOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: user } = useQuery({
+    queryKey: ['me'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/users/me');
+      return data.data;
+    },
+  });
+
+  const name = user?.userName || '사용자';
+  const email = user?.userEmail || '';
+  const initial = name[0] || '?';
 
   const { data: myTeams, isLoading } = useQuery({
     queryKey: ['myTeams'],
@@ -87,20 +180,19 @@ export default function MainPage() {
 
   return (
     <div className="w-full h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm relative">
-      {menuOpen && <MenuPopup onClose={() => setMenuOpen(false)} />}
+      {menuOpen && <MenuPopup onClose={() => setMenuOpen(false)} name={name} email={email} initial={initial} />}
+      {joinModalOpen && (
+        <JoinByCodeModal 
+          onClose={() => setJoinModalOpen(false)} 
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['myTeams'] })} 
+        />
+      )}
       {/* 헤더 */}
       <header className="flex items-center justify-between px-4 h-[52px] shrink-0 border-b border-zinc-100 bg-white">
         <span className="text-[17px] font-bold tracking-tight">CrewWise</span>
         <div className="flex items-center gap-2">
-          <button className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-          </button>
-          <button className="p-1 text-zinc-700" onClick={() => setMenuOpen(true)}>
-            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+          <button onClick={() => setMenuOpen(true)} className="w-7 h-7 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
+            <span className="text-[13px] font-bold text-white">{initial}</span>
           </button>
         </div>
       </header>
@@ -190,9 +282,8 @@ export default function MainPage() {
                   <div key={m.id} className="flex items-center gap-3 py-3 border-b border-zinc-100">
                     <div className="w-10 h-10 rounded-full bg-zinc-200 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full mb-1 ${
-                        m.status === '진행 중' ? 'bg-[#3B3EFF] text-white' : 'bg-zinc-100 text-zinc-400'
-                      }`}>
+                      <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full mb-1 ${m.status === '진행 중' ? 'bg-[#3B3EFF] text-white' : 'bg-zinc-100 text-zinc-400'
+                        }`}>
                         {m.status}
                       </span>
                       <p className="text-[12px] font-medium text-zinc-800 leading-tight">{m.title}</p>
@@ -221,6 +312,20 @@ export default function MainPage() {
       <footer className="py-3 px-4 border-t border-zinc-100 text-center shrink-0">
         <p className="text-[11px] text-zinc-400">© 2026 CrewWise Corp. All Rights Reserved</p>
       </footer>
+
+      {/* 추천코드로 가입 플로팅 버튼 */}
+      {tab === '내 모임' && (
+        <button
+          onClick={() => setJoinModalOpen(true)}
+          className="fixed bottom-[20px] right-6 h-[46px] px-4 bg-zinc-900 rounded-full flex items-center justify-center gap-2 shadow-xl hover:bg-zinc-800 transition-colors z-20"
+          style={{ right: 'calc(50% - 195px + 24px)', left: 'auto' }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
+          </svg>
+          <span className="text-[14px] font-bold text-white">코드로 가입</span>
+        </button>
+      )}
     </div>
   );
 }

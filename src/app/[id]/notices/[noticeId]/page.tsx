@@ -1,13 +1,35 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { NOTICES } from '../_data';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
+
+interface NoticeResponse {
+  notiId: number;
+  notiTitle: string;
+  notiContent: string;
+  notiFix: string;
+  regDtm: string;
+  modDtm: string;
+  teamId: string;
+}
 
 export default function NoticeDetailPage() {
   const { noticeId } = useParams<{ noticeId: string }>();
   const router = useRouter();
 
-  const notice = NOTICES.find((n) => n.id === noticeId);
+  const { data: notice, isLoading } = useQuery({
+    queryKey: ['notice', noticeId],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/notices/${noticeId}`);
+      return data.data as NoticeResponse;
+    },
+    enabled: !!noticeId,
+  });
+
+  if (isLoading) {
+    return <div className="text-center py-20 text-zinc-500 text-sm">불러오는 중...</div>;
+  }
 
   if (!notice) {
     return (
@@ -23,16 +45,16 @@ export default function NoticeDetailPage() {
       {/* 제목 */}
       <div className="pb-5 border-b border-zinc-100">
         <div className="flex items-center gap-2 mb-2">
-          {notice.isRequired && (
+          {notice.notiFix === 'Y' && (
             <span className="text-[11px] font-semibold text-white bg-[#3B3EFF] rounded-full px-2 py-0.5 shrink-0">
               필독
             </span>
           )}
-          {notice.isPinned && (
+          {notice.notiFix === 'Y' && (
             <span className="text-[11px] font-medium text-zinc-400">고정됨</span>
           )}
         </div>
-        <h1 className="text-[18px] font-bold text-zinc-900 break-words">{notice.title}</h1>
+        <h1 className="text-[18px] font-bold text-zinc-900 break-words">{notice.notiTitle}</h1>
       </div>
 
       {/* 날짜 · 작성자 */}
@@ -42,20 +64,20 @@ export default function NoticeDetailPage() {
             <rect x="3" y="4" width="18" height="18" rx="2" strokeLinecap="round" strokeLinejoin="round" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M16 2v4M8 2v4M3 10h18" />
           </svg>
-          <span className="text-[12px] text-zinc-400">{notice.date}</span>
+          <span className="text-[12px] text-zinc-400">{notice.regDtm}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
             <circle cx="12" cy="7" r="4" />
           </svg>
-          <span className="text-[12px] text-zinc-400">{notice.author}</span>
+          <span className="text-[12px] text-zinc-400">모임장</span>
         </div>
       </div>
 
       {/* 내용 */}
       <div className="pt-5">
-        {notice.content.split('\n').map((line, i) => (
+        {notice.notiContent?.split('\n').map((line, i) => (
           <p key={i} className="text-[14px] text-zinc-700 leading-relaxed mb-1">{line}</p>
         ))}
       </div>

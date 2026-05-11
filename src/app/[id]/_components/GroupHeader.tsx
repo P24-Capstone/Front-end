@@ -10,7 +10,7 @@ export default function GroupHeader() {
   const pathname = usePathname();
   const params = useParams();
   const id = params?.id as string;
-  const { editSlot } = useHeaderSlotStore();
+  const { editSlot, pageHeader } = useHeaderSlotStore();
 
   const { data: teamName } = useQuery({
     queryKey: ['groupName', id],
@@ -38,7 +38,9 @@ export default function GroupHeader() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <span className="text-[17px] font-bold tracking-tight">{teamName || '모임명'}</span>
+        <span className="text-[17px] font-bold tracking-tight">
+          {pageHeader ? pageHeader.title : (teamName || '모임명')}
+        </span>
       </div>
       {editSlot ? (
         editSlot.editing ? (
@@ -63,6 +65,8 @@ export default function GroupHeader() {
             </svg>
           </button>
         )
+      ) : pageHeader?.hideHamburger ? (
+        <div className="w-7" />
       ) : (
         <button className="p-1 text-zinc-700">
           <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>

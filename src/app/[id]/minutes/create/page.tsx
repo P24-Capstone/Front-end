@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useHeaderSlotStore } from '@/store/headerSlot';
 
 const INPUT_CLS = 'w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-[14px] text-zinc-800 placeholder:text-zinc-300 outline-none focus:border-[#3B3EFF] transition-colors bg-white';
 
@@ -148,11 +149,17 @@ function GeneratingView({ files, onCancel }: { files: AudioFile[]; onCancel: () 
 export default function MinutesCreatePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { setPageHeader } = useHeaderSlotStore();
   const [title, setTitle] = useState('');
   const [files, setFiles] = useState<AudioFile[]>([]);
   const [dragging, setDragging] = useState(false);
   const [generating, setGenerating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPageHeader({ title: '회의록 생성하기', hideHamburger: true });
+    return () => setPageHeader(null);
+  }, [setPageHeader]);
 
   async function addFiles(incoming: FileList | null) {
     if (!incoming) return;

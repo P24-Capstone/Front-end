@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 
@@ -20,27 +19,77 @@ interface TeamResponse {
 }
 
 const MISSIONS = [
-  { id: 1, status: '진행중', statusColor: '#22c55e', title: '책 읽고 인증하기', subtitle: '책 사진찍고 인증하기', deadline: 3 },
-  { id: 2, status: '진행중', statusColor: '#f97316', title: '책 읽고 인증하기', subtitle: '책 사진찍고 인증하기', deadline: 5 },
-  { id: 3, status: '진행중', statusColor: '#22c55e', title: '책 읽고 인증하기', subtitle: '책 사진찍고 인증하기', deadline: 1 },
-  { id: 4, status: '진행중', statusColor: '#f97316', title: '책 읽고 인증하기', subtitle: '책 사진찍고 인증하기', deadline: 7 },
+  { id: 1, status: '진행 중', statusColor: '#22c55e', title: '책 읽고 인증하기', subtitle: '책 사진찍고 인증하기', deadline: 3 },
+  { id: 2, status: '진행 중', statusColor: '#f97316', title: '책 읽고 인증하기', subtitle: '책 사진찍고 인증하기', deadline: 5 },
+  { id: 3, status: '완료', statusColor: '#a1a1aa', title: '책 읽고 인증하기', subtitle: '책 사진찍고 인증하기', deadline: 0 },
+  { id: 4, status: '진행 중', statusColor: '#f97316', title: '책 읽고 인증하기', subtitle: '책 사진찍고 인증하기', deadline: 7 },
 ];
 
+type TabType = '내 모임' | '미션';
+type MissionFilter = '진행 중' | '완료';
+
+function MenuPopup({ onClose }: { onClose: () => void }) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div className="absolute top-[52px] right-4 z-50 bg-white rounded-xl shadow-xl w-[190px] overflow-hidden border border-zinc-100">
+        {/* 프로필 */}
+        <div className="flex items-center gap-2.5 px-3.5 py-3 border-b border-zinc-100">
+          <div className="w-8 h-8 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
+            <span className="text-[13px] font-bold text-white">김</span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[13px] font-bold text-zinc-900">김민준</p>
+            <p className="text-[11px] text-zinc-400 truncate">minjun@crew.kr</p>
+          </div>
+        </div>
+        {/* 마이페이지 */}
+        <Link href="/mypage" onClick={onClose} className="flex items-center gap-2.5 px-4 py-3 border-b border-zinc-100 hover:bg-zinc-50">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+          </svg>
+          <span className="text-[13px] font-medium text-zinc-800">마이페이지</span>
+        </Link>
+        {/* 프로필 수정 */}
+        <Link href="/mypage/edit" onClick={onClose} className="flex items-center gap-2.5 px-4 py-3 border-b border-zinc-100 hover:bg-zinc-50">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+          <span className="text-[13px] font-medium text-zinc-800">프로필 수정</span>
+        </Link>
+        {/* 로그아웃 */}
+        <button onClick={onClose} className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-zinc-50">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+          </svg>
+          <span className="text-[13px] font-medium text-red-500">로그아웃</span>
+        </button>
+      </div>
+    </>
+  );
+}
+
 export default function MainPage() {
-  const [missionTab, setMissionTab] = useState<'진행중' | '완료'>('진행중');
+  const [tab, setTab] = useState<TabType>('내 모임');
+  const [missionFilter, setMissionFilter] = useState<MissionFilter>('진행 중');
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const { data: myTeams, isLoading } = useQuery({
     queryKey: ['myTeams'],
     queryFn: async () => {
       const { data } = await api.get('/api/teams/my');
       return data.data as TeamResponse[];
-    }
+    },
   });
 
+  const filteredMissions = MISSIONS.filter((m) => m.status === missionFilter);
+
   return (
-    <div className="min-h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
+    <div className="w-full h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm relative">
+      {menuOpen && <MenuPopup onClose={() => setMenuOpen(false)} />}
+      {/* 헤더 */}
+      <header className="flex items-center justify-between px-4 h-[52px] shrink-0 border-b border-zinc-100 bg-white">
         <span className="text-[17px] font-bold tracking-tight">CrewWise</span>
         <div className="flex items-center gap-2">
           <button className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center">
@@ -48,38 +97,46 @@ export default function MainPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </button>
-          <button className="p-1 text-zinc-700">
-            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="5" r="1.5" />
-              <circle cx="12" cy="12" r="1.5" />
-              <circle cx="12" cy="19" r="1.5" />
+          <button className="p-1 text-zinc-700" onClick={() => setMenuOpen(true)}>
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto">
-        {/* 내 모임 */}
-        <section className="px-4 py-5">
-          <h2 className="text-[15px] font-bold mb-3">내 모임</h2>
-          <div className="grid grid-cols-3 gap-2">
-            {/* 새 모임 만들기 */}
-            <Link href="/groups/new">
-              <div className="aspect-square rounded-xl border-2 border-dashed border-zinc-300 flex flex-col items-center justify-center gap-2 hover:border-[#7073FB] hover:bg-[#7073FB] transition-colors cursor-pointer">
-                <div className="size-8 rounded-full bg-zinc-100 flex items-center justify-center">
-                  <span className="text-xl text-zinc-500 font-light">+</span>
-                </div>
-                <span className="text-[10px] text-zinc-400 text-center leading-tight">
-                  새 모임
-                </span>
-              </div>
-            </Link>
+      {/* 탭바 */}
+      <div className="flex border-b border-zinc-200 shrink-0">
+        {(['내 모임', '미션'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`flex-1 flex justify-center text-[14px] font-semibold transition-colors ${tab === t ? 'text-zinc-900' : 'text-zinc-400'}`}
+          >
+            <span className={`inline-block py-2.5 -mb-px ${tab === t ? 'border-b-2 border-zinc-900' : ''}`}>
+              {t}
+            </span>
+          </button>
+        ))}
+      </div>
 
-            {/* 모임 카드 */}
-            {isLoading ? (
-              <div className="col-span-3 text-center text-xs text-zinc-500 py-4">불러오는 중...</div>
-            ) : myTeams && myTeams.length > 0 ? (
-              myTeams.map((group, i) => (
+      {/* 메인 콘텐츠 */}
+      <main className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+
+        {/* 내 모임 탭 */}
+        {tab === '내 모임' && (
+          <section className="px-4 pt-5 pb-8">
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <Link href="/groups/new" className="group">
+                <div className="aspect-square rounded-xl border-2 border-dashed border-zinc-300 group-hover:border-[#3B3EFF] flex flex-col items-center justify-center gap-3 transition-colors cursor-pointer">
+                  <div className="w-8 h-8 rounded-full bg-zinc-200 group-hover:bg-[#3B3EFF] flex items-center justify-center transition-colors">
+                    <span className="text-xl text-[#3B3EFF] group-hover:text-white font-light leading-none transition-colors">+</span>
+                  </div>
+                  <span className="text-[11px] font-medium text-zinc-800 group-hover:text-zinc-900 text-center leading-tight transition-colors">새 모임 만들기</span>
+                </div>
+              </Link>
+
+              {myTeams && myTeams.length > 0 && myTeams.map((group, i) => (
                 <Link key={group.teamId} href={`/${group.teamId}/home`}>
                   <div className="aspect-square rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
                     <div
@@ -93,72 +150,75 @@ export default function MainPage() {
                     </div>
                   </div>
                 </Link>
-              ))
-            ) : (
-              <div className="col-span-3 text-center text-xs text-zinc-500 py-4">가입한 모임이 없습니다.</div>
+              ))}
+            </div>
+
+            {isLoading && (
+              <p className="text-center text-[13px] text-zinc-400 py-16">불러오는 중...</p>
             )}
-          </div>
-        </section>
+            {!isLoading && (!myTeams || myTeams.length === 0) && (
+              <p className="text-center text-[13px] text-zinc-400 py-16">가입한 모임이 없습니다.</p>
+            )}
+          </section>
+        )}
 
-        <div className="h-2 bg-zinc-50" />
-
-        {/* 미션 */}
-        <section className="px-4 py-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[15px] font-bold">미션</h2>
-            <div className="flex items-center gap-1 text-[12px] text-zinc-400">
+        {/* 미션 탭 */}
+        {tab === '미션' && (
+          <section className="pb-8">
+            {/* 정렬 */}
+            <div className="flex items-center justify-center py-3 border-b border-zinc-100">
               <button
-                onClick={() => setMissionTab('진행중')}
-                className={missionTab === '진행중' ? 'text-zinc-900 font-semibold' : ''}
+                onClick={() => setMissionFilter('진행 중')}
+                className={`text-[13px] px-2 ${missionFilter === '진행 중' ? 'font-semibold text-zinc-900' : 'text-zinc-400'}`}
               >
-                진행중인 미션
+                진행 중
               </button>
-              <span className="text-zinc-300">|</span>
+              <span className="text-zinc-300 text-[13px]">|</span>
               <button
-                onClick={() => setMissionTab('완료')}
-                className={missionTab === '완료' ? 'text-zinc-900 font-semibold' : ''}
+                onClick={() => setMissionFilter('완료')}
+                className={`text-[13px] px-2 ${missionFilter === '완료' ? 'font-semibold text-zinc-900' : 'text-zinc-400'}`}
               >
-                완료된 미션 보기
+                완료
               </button>
             </div>
-          </div>
 
-          <div className="divide-y divide-zinc-100">
-            {MISSIONS.map((m) => (
-              <div key={m.id} className="flex items-center gap-3 py-3">
-                {/* Avatar */}
-                <div className="w-10 h-10 rounded-full bg-zinc-200 shrink-0" />
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <span
-                    className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full mb-1"
-                    style={{ backgroundColor: m.statusColor + '22', color: m.statusColor }}
-                  >
-                    {m.status}
-                  </span>
-                  <p className="text-[12px] font-medium text-zinc-800 leading-tight">{m.title}</p>
-                  <p className="text-[11px] text-zinc-400">{m.subtitle}</p>
-                </div>
-
-                {/* Action */}
-                <div className="shrink-0 flex flex-col items-end gap-1">
-                  <button
-                    className="text-[11px] px-2.5 py-1 rounded-full border font-medium whitespace-nowrap"
-                    style={{ borderColor: '#0d9488', color: '#0d9488' }}
-                  >
-                    자동 인증하기
-                  </button>
-                  <span className="text-[10px] text-red-400">마감까지 {m.deadline}일</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+            <div className="px-4">
+              {filteredMissions.length === 0 ? (
+                <p className="text-center text-[13px] text-zinc-400 py-10">미션이 없습니다.</p>
+              ) : (
+                filteredMissions.map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 py-3 border-b border-zinc-100">
+                    <div className="w-10 h-10 rounded-full bg-zinc-200 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full mb-1 ${
+                        m.status === '진행 중' ? 'bg-[#3B3EFF] text-white' : 'bg-zinc-100 text-zinc-400'
+                      }`}>
+                        {m.status}
+                      </span>
+                      <p className="text-[12px] font-medium text-zinc-800 leading-tight">{m.title}</p>
+                      <p className="text-[11px] text-zinc-400 mt-1">{m.subtitle}</p>
+                    </div>
+                    {m.status === '진행 중' && (
+                      <div className="shrink-0 flex flex-col items-end gap-2">
+                        <button className="text-[11px] px-2.5 py-1 rounded-full border border-[#3B3EFF] text-[#3B3EFF] font-medium whitespace-nowrap">
+                          자동 인증하기
+                        </button>
+                        <p className="text-[10px]">
+                          <span className="text-zinc-800">마감까지 </span>
+                          <span className={m.deadline <= 3 ? 'text-[#f97316]' : 'text-[#3B3EFF]'}>{m.deadline}일</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
       </main>
 
-      {/* Footer */}
-      <footer className="py-3 px-4 border-t border-zinc-100 text-center">
+      {/* 푸터 */}
+      <footer className="py-3 px-4 border-t border-zinc-100 text-center shrink-0">
         <p className="text-[11px] text-zinc-400">© 2026 CrewWise Corp. All Rights Reserved</p>
       </footer>
     </div>

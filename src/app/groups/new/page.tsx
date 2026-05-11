@@ -9,6 +9,7 @@ export default function CreateGroupPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
+    teamId: '',
     teamName: '',
     teamInfo: '',
     teamCategory: '독서',
@@ -30,8 +31,9 @@ export default function CreateGroupPage() {
         router.push('/main');
       }
     },
-    onError: () => {
-      alert('모임 생성에 실패했습니다.');
+    onError: (error: any) => {
+      const msg = error?.response?.data?.message || '모임 생성에 실패했습니다.';
+      alert(msg);
     }
   });
 
@@ -54,6 +56,19 @@ export default function CreateGroupPage() {
 
       <main className="flex-1 overflow-y-auto px-4 py-6">
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-semibold text-zinc-800">모임 아이디 (고유 영문/숫자 최대 10자)</label>
+            <input
+              type="text"
+              required
+              maxLength={10}
+              placeholder="예) READCLUB"
+              className="w-full h-12 px-4 bg-zinc-50 border border-zinc-200 rounded-xl text-[14px] outline-none focus:border-[#3B3EFF] focus:bg-white transition-colors placeholder:text-zinc-400"
+              value={formData.teamId}
+              onChange={(e) => setFormData({ ...formData, teamId: e.target.value.replace(/[^a-zA-Z0-9]/g, '') })}
+            />
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-[13px] font-semibold text-zinc-800">모임 이름</label>
             <input
@@ -117,7 +132,7 @@ export default function CreateGroupPage() {
 
           <button
             type="submit"
-            disabled={createTeamMutation.isPending || !formData.teamName.trim() || !formData.teamInfo.trim()}
+            disabled={createTeamMutation.isPending || !formData.teamId.trim() || !formData.teamName.trim() || !formData.teamInfo.trim()}
             className="w-full h-[52px] mt-4 bg-black text-white rounded-xl text-[15px] font-bold disabled:bg-zinc-300 disabled:text-zinc-500 transition-colors flex items-center justify-center"
           >
             {createTeamMutation.isPending ? (

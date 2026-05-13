@@ -28,6 +28,7 @@ export default function GroupHeader() {
     else if (pathname.includes('/notices/')) backHref = `/${segments[1]}/notices`;
     else if (pathname.includes('/votes/')) backHref = `/${segments[1]}/votes`;
     else if (pathname.includes('/minutes/')) backHref = `/${segments[1]}/minutes`;
+    else if (pathname.includes('/missions/')) backHref = `/${segments[1]}/missions`;
   }
 
   return (

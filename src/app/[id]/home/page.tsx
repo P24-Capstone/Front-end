@@ -1,18 +1,16 @@
 'use client';
 
-import { useState } from 'react';
-
 const NEWS_ITEMS = [
-  { id: 1, group: '모임1', dot: '#f97316', content: "이 '새 공지를 작성했'어요", time: '10분 전', badge: null },
-  { id: 2, group: '모임2', dot: '#3b82f6', content: '새 투표가 시작됐어요. 참여해보세요!', time: '1시간 전', badge: { count: '128', label: '24시' } },
-  { id: 3, group: '모임1', dot: '#f97316', content: '이번 주 미션이 업데이트됐어요', time: '2시간 전', badge: null },
-  { id: 4, group: '모임3', dot: '#22c55e', content: '새 일정이 등록됐어요. 확인해보세요.', time: '어제', badge: null },
+  { id: 1, content: '새 공지를 작성했어요', time: '10분 전' },
+  { id: 2, content: '새 투표가 시작됐어요. 참여해보세요!', time: '1시간 전' },
+  { id: 3, content: '이번 주 미션이 업데이트됐어요', time: '2시간 전' },
+  { id: 4, content: '새 일정이 등록됐어요. 확인해보세요.', time: '어제' },
 ];
 
 const RANKING = [
-  { rank: 1, score: 98, emoji: '🥇', isMe: false },
-  { rank: 2, score: 85, emoji: '🥈', isMe: false },
-  { rank: 3, score: 72, emoji: '🥉', isMe: false },
+  { rank: 1, score: 98, emoji: '🥇' },
+  { rank: 2, score: 85, emoji: '🥈' },
+  { rank: 3, score: 72, emoji: '🥉' },
 ];
 
 function CircleProgress({ pct, size = 84, sw = 7, color = '#111827' }: { pct: number; size?: number; sw?: number; color?: string }) {
@@ -51,46 +49,23 @@ function DonutChart({ pct, label, color }: { pct: number; label: string; color: 
 }
 
 export default function GroupHomePage() {
-  const [newsFilter, setNewsFilter] = useState<'전체' | '모임별'>('전체');
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-4">
       {/* 최근 소식 */}
       <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[15px] font-bold">최근 소식</h2>
-          <div className="flex gap-1.5">
-            {(['전체', '모임별'] as const).map((f) => (
-              <button key={f} onClick={() => setNewsFilter(f)}
-                className={`text-xs px-3 py-1 rounded-full transition-colors ${newsFilter === f ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500'
-                  }`}>
-                {f}
-              </button>
-            ))}
-          </div>
-        </div>
+        <h2 className="text-[15px] font-bold mb-3">최근 소식</h2>
         <div className="space-y-2">
           {NEWS_ITEMS.map((item) => (
             <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-zinc-50">
-              <div className="relative shrink-0">
-                <div className="w-10 h-10 rounded-full bg-zinc-200" />
-                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white"
-                  style={{ backgroundColor: item.dot }} />
+              <div className="w-9 h-9 rounded-full bg-[#3B3EFF] shrink-0 flex items-center justify-center">
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <span className="inline-block text-[11px] font-semibold px-1.5 py-0.5 rounded mb-0.5"
-                  style={{ backgroundColor: item.dot + '22', color: item.dot }}>
-                  {item.group}
-                </span>
-                <p className="text-[13px] text-zinc-800 leading-snug truncate">{item.content}</p>
+                <p className="text-[13px] text-zinc-800 leading-snug">{item.content}</p>
                 <p className="text-[11px] text-zinc-400 mt-0.5">{item.time}</p>
               </div>
-              {item.badge && (
-                <div className="shrink-0 flex flex-col items-end gap-1">
-                  <span className="text-[11px] bg-zinc-800 text-white rounded-full px-2 py-0.5 font-medium">{item.badge.count}</span>
-                  <span className="text-[11px] text-zinc-400">{item.badge.label}</span>
-                </div>
-              )}
             </div>
           ))}
         </div>

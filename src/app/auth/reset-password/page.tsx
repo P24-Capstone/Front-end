@@ -47,19 +47,6 @@ export default function ResetPasswordPage() {
     }
   }
 
-  const BottomLinks = () => (
-    <div className="flex flex-col items-center gap-1 mt-6 text-xs text-zinc-500">
-      <p>
-        크루와이즈가 처음이신가요?{' '}
-        <Link href="/auth/signup" className="font-medium text-zinc-700 underline">회원가입</Link>
-      </p>
-      <p>
-        이미 크루와이즈 회원이신가요?{' '}
-        <Link href="/auth/login" className="font-medium text-zinc-700 underline">로그인</Link>
-      </p>
-    </div>
-  );
-
   return (
     <div>
       <h1 className="text-xl font-bold text-zinc-800 mb-1">비밀번호 재설정</h1>
@@ -78,7 +65,7 @@ export default function ResetPasswordPage() {
             />
             <input
               type="tel"
-              placeholder="전화번호"
+              placeholder="전화번호 (숫자만)"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               required
@@ -88,7 +75,7 @@ export default function ResetPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-zinc-400 hover:bg-zinc-500 text-white py-2.5 rounded text-sm font-medium mt-1 disabled:opacity-60 transition-colors"
+              className="w-full bg-[#3B3EFF] text-white py-2.5 rounded text-sm font-medium mt-1 disabled:opacity-60 transition-opacity"
             >
               {loading ? '확인 중...' : '확인'}
             </button>
@@ -96,7 +83,7 @@ export default function ResetPasswordPage() {
         </>
       ) : (
         <>
-          <p className="text-sm text-zinc-500 mb-6">새 비밀번호를 입력해 주세요.</p>
+          <p className="text-sm text-zinc-500 mb-6">새 비밀번호를 입력해주세요.</p>
           <form onSubmit={handleReset} className="flex flex-col gap-3">
             <input
               type="password"
@@ -118,15 +105,24 @@ export default function ResetPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-zinc-400 hover:bg-zinc-500 text-white py-2.5 rounded text-sm font-medium mt-1 disabled:opacity-60 transition-colors"
+              className="w-full bg-[#3B3EFF] text-white py-2.5 rounded text-sm font-medium mt-1 disabled:opacity-60 transition-opacity"
             >
-              {loading ? '처리 중...' : '확인'}
+              {loading ? '처리 중...' : '변경하기'}
             </button>
           </form>
         </>
       )}
 
-      <BottomLinks />
+      <div className="flex flex-col items-center gap-1 mt-6 text-xs text-zinc-500">
+        <p>
+          크루와이즈가 처음이신가요?{' '}
+          <Link href="/auth/signup" className="font-medium text-zinc-700 underline">회원가입</Link>
+        </p>
+        <p>
+          이미 크루와이즈 회원이신가요?{' '}
+          <Link href="/auth/login" className="font-medium text-zinc-700 underline">로그인</Link>
+        </p>
+      </div>
     </div>
   );
 }

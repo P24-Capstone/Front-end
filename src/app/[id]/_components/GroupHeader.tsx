@@ -61,7 +61,7 @@ export default function GroupHeader() {
     const parts = pathname.split('/').filter(Boolean);
     const isDetailPage = parts.length >= 3; // e.g., /[id]/events/123
 
-    if (pathname.includes('/new') || pathname.includes('/create') || isDetailPage) {
+    if (pathname.includes('/new') || pathname.includes('/create') || pathname.includes('/info') || isDetailPage) {
       router.back();
     } else {
       router.push('/main');

@@ -56,7 +56,7 @@ export default function MyPageEditPage() {
   return (
     <div className="w-full h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm overflow-hidden">
       <header className="flex items-center px-4 h-[52px] shrink-0 border-b border-zinc-100">
-        <button onClick={() => router.back()} className="p-1 text-zinc-500 mr-2">
+        <button onClick={() => router.push('/main')} className="p-1 text-zinc-500 mr-2">
           <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>

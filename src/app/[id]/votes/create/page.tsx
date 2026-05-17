@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useHeaderSlotStore } from '@/store/headerSlot';
+import api from '@/lib/api';
 
 const INPUT_CLS = 'w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-[14px] text-zinc-800 placeholder:text-zinc-300 outline-none focus:border-[#3B3EFF] transition-colors bg-white';
 const SECTION_LABEL = 'text-[13px] font-semibold text-zinc-600 mb-2 block';
@@ -11,8 +13,23 @@ type DeadlinePreset = '3일 후' | '5일 후' | '7일 후' | '직접선택';
 
 const today = new Date().toISOString().split('T')[0];
 
+function addDays(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+}
+
+function getEndDate(preset: DeadlinePreset, custom: string): string {
+  if (preset === '3일 후') return addDays(3);
+  if (preset === '5일 후') return addDays(5);
+  if (preset === '7일 후') return addDays(7);
+  return custom;
+}
+
 export default function VoteCreatePage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { setPageHeader } = useHeaderSlotStore();
 
   const [title, setTitle] = useState('');
@@ -42,10 +59,29 @@ export default function VoteCreatePage() {
   const filledOptions = options.filter((o) => o.trim() !== '');
   const isDisabled = !title.trim() || filledOptions.length < 2;
 
+  const createMutation = useMutation({
+    mutationFn: () =>
+      api.post('/api/votes', {
+        voteTitle: title.trim(),
+        voteContent: description.trim() || title.trim(),
+        voteStartDt: startDate,
+        voteEndDt: getEndDate(deadlinePreset, customEndDate),
+        voteType: optionType === 'text' ? 'T' : 'D',
+        voteRule: tieBreaker === '재투표 진행' ? 'R' : 'L',
+        voteMulti: multipleChoice ? 'Y' : 'N',
+        teamId: id,
+        options: filledOptions,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['votes', id] });
+      router.back();
+    },
+  });
+
   return (
     <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-5">
 
-      {/* 제목 + 설명 — 흰 카드 */}
+      {/* 제목 + 설명 */}
       <div className="bg-white rounded-xl p-4 flex flex-col gap-4">
         <div>
           <label className="block text-[13px] font-medium text-zinc-500 mb-1.5">투표 제목</label>
@@ -199,14 +235,19 @@ export default function VoteCreatePage() {
         </div>
       </div>
 
+      {createMutation.isError && (
+        <p className="px-1 text-[13px] text-red-500">투표 생성에 실패했습니다. 다시 시도해주세요.</p>
+      )}
+
       {/* 생성 버튼 */}
       <button
-        disabled={isDisabled}
+        disabled={isDisabled || createMutation.isPending}
+        onClick={() => createMutation.mutate()}
         className={`mx-1 text-[15px] font-semibold py-3.5 rounded-xl transition-colors ${
-          isDisabled ? 'bg-zinc-300 text-white' : 'bg-[#3B3EFF] text-white'
+          isDisabled || createMutation.isPending ? 'bg-zinc-300 text-white' : 'bg-[#3B3EFF] text-white'
         }`}
       >
-        투표 생성
+        {createMutation.isPending ? '생성 중...' : '투표 생성'}
       </button>
     </div>
   );

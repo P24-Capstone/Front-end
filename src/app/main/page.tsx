@@ -92,13 +92,32 @@ function MenuPopup({ onClose, name, email, initial }: MenuPopupProps) {
   );
 }
 
+interface UserImgItem {
+  imgId: number;
+  imgFileKey: string;
+}
+
 function JoinByCodeModal({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) {
   const [code, setCode] = useState('');
   const [nickname, setNickname] = useState('');
+  const [selectedImgId, setSelectedImgId] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const { data: images, refetch: refetchImages } = useQuery<UserImgItem[]>({
+    queryKey: ['myImages'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/users/me/images');
+      return data.data as UserImgItem[];
+    },
+  });
 
   const joinMutation = useMutation({
     mutationFn: async () => {
-      await api.post('/api/members/join/code', { code, memNic: nickname });
+      await api.post('/api/members/join/code', {
+        code,
+        memNic: nickname,
+        ...(selectedImgId !== null && { userImgId: selectedImgId }),
+      });
     },
     onSuccess: () => {
       alert('가입 신청이 완료되었습니다. 모임장의 승인을 기다려주세요!');
@@ -109,6 +128,31 @@ function JoinByCodeModal({ onClose, onSuccess }: { onClose: () => void, onSucces
       alert(err?.response?.data?.message || '가입에 실패했습니다.');
     }
   });
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const { data: uploadRes } = await api.post('/api/files/upload', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const imgFileKey: string = uploadRes.data;
+      const { data: imgRes } = await api.post('/api/users/me/images', { imgFileKey });
+      const newImg: UserImgItem = imgRes.data;
+      setSelectedImgId(newImg.imgId);
+      refetchImages();
+    } catch {
+      alert('이미지 업로드에 실패했습니다.');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const displayImages = images ?? [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -135,6 +179,49 @@ function JoinByCodeModal({ onClose, onSuccess }: { onClose: () => void, onSucces
               placeholder="모임에서 사용할 닉네임"
               className="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl text-[14px] outline-none focus:border-[#3B3EFF]"
             />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[12px] font-medium text-zinc-600">프로필 이미지 선택</label>
+              <label className="text-[11px] text-[#3B3EFF] font-medium cursor-pointer">
+                {uploading ? '업로드 중...' : '+ 새 이미지 업로드'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploading}
+                  onChange={handleUpload}
+                />
+              </label>
+            </div>
+            <div className="flex flex-wrap gap-2 p-2 bg-zinc-50 border border-zinc-200 rounded-xl min-h-[72px]">
+              {displayImages.length === 0 && (
+                <p className="text-[11px] text-zinc-400 m-auto">이미지가 없습니다. 업로드해주세요.</p>
+              )}
+              {displayImages.map((img) => {
+                const isDefault = img.imgFileKey === 'default';
+                const isSelected = selectedImgId === img.imgId;
+                return (
+                  <button
+                    key={img.imgId}
+                    type="button"
+                    onClick={() => setSelectedImgId(img.imgId)}
+                    className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all ${isSelected ? 'border-[#3B3EFF] scale-105' : 'border-transparent'}`}
+                  >
+                    {isDefault ? (
+                      <div className="w-full h-full bg-[#C4B5FD] flex items-center justify-center">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                          <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
+                        </svg>
+                      </div>
+                    ) : (
+                      <img src={img.imgFileKey} alt="프로필" className="w-full h-full object-cover" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

@@ -50,11 +50,11 @@ export default function CreateEventPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const startDt = formData.startTime
-      ? `${formData.startDate}T${formData.startTime}:00`
+      ? `${formData.startDate}`
       : formData.startDate;
     const endDt = formData.endDate
       ? formData.endTime
-        ? `${formData.endDate}T${formData.endTime}:00`
+        ? `${formData.endDate}`
         : formData.endDate
       : null;
 
@@ -96,45 +96,29 @@ export default function CreateEventPage() {
           />
         </div>
 
-        {/* 일시 */}
+        {/* 시작 일자 */}
         <div className="space-y-1.5">
-          <label className="text-[13px] font-semibold text-zinc-800">일시</label>
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              type="date"
-              required
-              className={inputCls}
-              value={formData.startDate}
-              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-            />
-            <input
-              type="time"
-              className={inputCls}
-              value={formData.startTime}
-              onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-            />
-          </div>
+          <label className="text-[13px] font-semibold text-zinc-800">시작 일자</label>
+          <input
+            type="date"
+            required
+            className={inputCls}
+            value={formData.startDate}
+            onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+          />
         </div>
 
-        {/* 종료 일시 (선택) */}
+        {/* 종료 일자 (선택) */}
         <div className="space-y-1.5">
           <label className="text-[13px] font-semibold text-zinc-800">
-            종료 일시 <span className="text-[12px] font-normal text-zinc-400">(선택)</span>
+            종료 일자 <span className="text-[12px] font-normal text-zinc-400">(선택)</span>
           </label>
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              type="date"
-              className={inputCls}
-              value={formData.endDate}
-              onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-            />
-            <input
-              type="time"
-              className={inputCls}
-              value={formData.endTime}
-              onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-            />
-          </div>
+          <input
+            type="date"
+            className={inputCls}
+            value={formData.endDate}
+            onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+          />
         </div>
 
         <div className="space-y-1.5">

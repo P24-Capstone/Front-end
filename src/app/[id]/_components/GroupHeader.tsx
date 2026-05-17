@@ -57,16 +57,11 @@ export default function GroupHeader() {
     }
   };
 
-  const segments = pathname.split('/');
   const handleBack = () => {
-    if (segments.length >= 4) {
-      if (pathname.includes('/events/')) router.push(`/${segments[1]}/events`);
-      else if (pathname.includes('/notices/')) router.push(`/${segments[1]}/notices`);
-      else if (pathname.includes('/votes/')) router.push(`/${segments[1]}/votes`);
-      else if (pathname.includes('/minutes/')) router.push(`/${segments[1]}/minutes`);
-      else router.back();
-    } else {
+    if (pathname.includes('/new') || pathname.includes('/create')) {
       router.back();
+    } else {
+      router.push('/main');
     }
   };
 

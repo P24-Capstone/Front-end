@@ -11,6 +11,7 @@ interface NoticeResponse {
   notiTitle: string;
   notiContent: string;
   notiFix: string;
+  notiRequired: string;
   regDtm: string;
   modDtm: string;
   teamId: string;
@@ -29,7 +30,7 @@ function PinIcon() {
 
 function NoticeItem({ notice, id }: { notice: NoticeResponse; id: string }) {
   const isPinned = notice.notiFix === 'Y';
-  const isRequired = notice.notiFix === 'Y'; // Treating fixed as required for now
+  const isRequired = notice.notiRequired === 'Y';
 
   return (
     <Link
@@ -81,15 +82,6 @@ export default function NoticesPage() {
 
   return (
     <div className="pt-2">
-      {/* 고정 공지 */}
-      {pinned.length > 0 && (
-        <div className="mb-4">
-          {pinned.map((notice) => (
-            <NoticeItem key={notice.notiId} notice={notice} id={id} />
-          ))}
-        </div>
-      )}
-
       {/* 정렬 */}
       <div className="flex items-center justify-center mb-1 pb-3 border-b border-zinc-100">
         <button
@@ -107,9 +99,20 @@ export default function NoticesPage() {
         </button>
       </div>
 
+      {/* 고정 공지 */}
+      {pinned.length > 0 && (
+        <div className="mb-4">
+          {pinned.map((notice) => (
+            <NoticeItem key={notice.notiId} notice={notice} id={id} />
+          ))}
+        </div>
+      )}
+
       {/* 일반 공지 목록 */}
       <div className="pb-20">
-        {rest.length === 0 && <div className="text-center py-10 text-zinc-500 text-sm">등록된 공지가 없습니다.</div>}
+        {rest.length === 0 && pinned.length === 0 && (
+          <div className="text-center py-10 text-zinc-500 text-sm">등록된 공지가 없습니다.</div>
+        )}
         {rest.map((notice) => (
           <NoticeItem key={notice.notiId} notice={notice} id={id} />
         ))}

@@ -3,11 +3,25 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { MINUTES, type Minute } from './_data';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
 
-type SortType = '생성일순' | '이름순' | '최근수정일순';
+type SortType = '생성일순' | '이름순';
 
-const isLeader = true; // TODO: from auth
+interface MeetingRecordResponse {
+  meetingId: number;
+  meetingTitle: string;
+  fullScript: string;
+  aiSummary: string;
+  regDtm: string;
+  teamId: string;
+  recFileKey: string;
+}
+
+interface MemberResponse {
+  memRole: string;
+  memState: string;
+}
 
 function getGroup(dateStr: string): '지난 7일' | '지난 30일' | '이전' {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
@@ -27,36 +41,27 @@ function MicIcon() {
   );
 }
 
-function KebabIcon() {
+function MinuteCard({ record, groupId }: { record: MeetingRecordResponse; groupId: string }) {
+  const hasAiSummary = !!record.aiSummary;
   return (
-    <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24" className="text-zinc-300">
-      <circle cx="12" cy="5" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="12" cy="19" r="1.5" />
-    </svg>
-  );
-}
-
-function MinuteCard({ minute, groupId }: { minute: Minute; groupId: string }) {
-  return (
-    <Link href={`/${groupId}/minutes/${minute.id}`}>
+    <Link href={`/${groupId}/minutes/${record.meetingId}`}>
       <div className="bg-white rounded-lg px-4 py-3.5 flex items-center gap-3 active:bg-zinc-50 transition-colors">
         <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center shrink-0">
           <MicIcon />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap gap-1 mb-1.5">
-            {minute.tags.map((t) => (
-              <span key={t.label} className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${t.className}`}>
-                {t.label}
+            {hasAiSummary && (
+              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-[#EBEBFF] text-[#3B3EFF]">
+                AI 요약
               </span>
-            ))}
+            )}
           </div>
-          <p className="text-[14px] font-medium text-zinc-800 truncate">{minute.title}</p>
+          <p className="text-[14px] font-medium text-zinc-800 truncate">
+            {record.meetingTitle || '제목 없음'}
+          </p>
+          <p className="text-[12px] text-zinc-400 mt-0.5">{record.regDtm?.slice(0, 10)}</p>
         </div>
-        <button onClick={(e) => e.preventDefault()} className="shrink-0 p-1">
-          <KebabIcon />
-        </button>
       </div>
     </Link>
   );
@@ -66,17 +71,35 @@ export default function MinutesPage() {
   const { id } = useParams<{ id: string }>();
   const [sort, setSort] = useState<SortType>('생성일순');
 
-  const sorted = [...MINUTES].sort((a, b) => {
-    if (sort === '이름순') return a.title.localeCompare(b.title, 'ko');
-    if (sort === '최근수정일순') return b.updatedAt.localeCompare(a.updatedAt);
-    return b.createdAt.localeCompare(a.createdAt);
+  const { data: myMembership } = useQuery({
+    queryKey: ['members', 'me', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/members/me?teamId=${id}`);
+      return data.data as MemberResponse;
+    },
+    enabled: !!id,
   });
 
-  const dateKey = sort === '최근수정일순' ? 'updatedAt' : 'createdAt';
+  const isLeader = myMembership?.memRole === 'L' && myMembership?.memState === 'A';
+
+  const { data: records = [], isLoading } = useQuery({
+    queryKey: ['meeting-records', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/meeting-records?teamId=${id}`);
+      return data.data as MeetingRecordResponse[];
+    },
+    enabled: !!id,
+  });
+
+  const sorted = [...records].sort((a, b) => {
+    if (sort === '이름순') return (a.meetingTitle ?? '').localeCompare(b.meetingTitle ?? '', 'ko');
+    return b.regDtm.localeCompare(a.regDtm);
+  });
+
   const GROUP_LABELS = ['지난 7일', '지난 30일', '이전'] as const;
   const groups = GROUP_LABELS.map((label) => ({
     label,
-    items: sorted.filter((m) => getGroup(m[dateKey]) === label),
+    items: sorted.filter((m) => getGroup(m.regDtm) === label),
   })).filter((g) => g.items.length > 0);
 
   return (
@@ -84,7 +107,7 @@ export default function MinutesPage() {
       <div className="flex-1 -mx-4 -mb-5 bg-zinc-100 px-4 pt-4 pb-28">
         {/* 정렬 */}
         <div className="flex items-center justify-center mb-4">
-          {(['생성일순', '이름순', '최근수정일순'] as const).map((s, i) => (
+          {(['생성일순', '이름순'] as const).map((s, i) => (
             <span key={s} className="flex items-center">
               {i > 0 && <span className="text-zinc-300 text-[13px]">|</span>}
               <button
@@ -97,24 +120,25 @@ export default function MinutesPage() {
           ))}
         </div>
 
+        {isLoading && <p className="text-center text-[13px] text-zinc-400 py-10">불러오는 중...</p>}
+        {!isLoading && records.length === 0 && (
+          <p className="text-center text-[13px] text-zinc-400 py-10">회의록이 없습니다.</p>
+        )}
+
         {/* 목록 */}
         {sort === '이름순' ? (
           <div className="flex flex-col gap-3">
-            {sorted.map((m) => <MinuteCard key={m.id} minute={m} groupId={id} />)}
+            {sorted.map((m) => <MinuteCard key={m.meetingId} record={m} groupId={id} />)}
           </div>
         ) : (
           groups.map(({ label, items }) => (
             <div key={label} className="mb-5">
               <p className="text-[12px] font-medium text-zinc-400 mb-2 px-1">{label}</p>
               <div className="flex flex-col gap-3">
-                {items.map((m) => <MinuteCard key={m.id} minute={m} groupId={id} />)}
+                {items.map((m) => <MinuteCard key={m.meetingId} record={m} groupId={id} />)}
               </div>
             </div>
           ))
-        )}
-
-        {MINUTES.length === 0 && (
-          <p className="text-center text-[13px] text-zinc-400 py-10">회의록이 없습니다.</p>
         )}
 
         {/* FAB */}

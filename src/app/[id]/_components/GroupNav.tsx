@@ -11,7 +11,6 @@ const TABS = [
   { label: '공지', href: 'notices' },
   { label: '미션', href: 'missions' },
   { label: '기록', href: 'minutes' },
-  { label: '소식', href: 'news' },
 ];
 
 export default function GroupNav({ groupId }: { groupId: string }) {
@@ -19,8 +18,16 @@ export default function GroupNav({ groupId }: { groupId: string }) {
 
   const segments = pathname.split('/');
   const isDetailPage =
+
     segments.length >= 4 &&
     (pathname.includes('/events/') || pathname.includes('/notices/') || pathname.includes('/votes/') || pathname.includes('/minutes/') || pathname.includes('/missions/'));
+=======
+    pathname.endsWith('/info') ||
+    (segments.length >= 4 &&
+      (pathname.includes('/events/') || pathname.includes('/notices/') ||
+       pathname.includes('/votes/') || pathname.includes('/minutes/') ||
+       pathname.includes('/members/')));
+
   if (isDetailPage) return null;
 
   return (

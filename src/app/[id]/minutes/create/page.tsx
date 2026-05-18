@@ -2,7 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useHeaderSlotStore } from '@/store/headerSlot';
+import api from '@/lib/api';
 
 const INPUT_CLS = 'w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-[14px] text-zinc-800 placeholder:text-zinc-300 outline-none focus:border-[#3B3EFF] transition-colors bg-white';
 
@@ -63,26 +65,21 @@ function StepIcon({ status }: { status: 'done' | 'active' | 'waiting' }) {
   );
 }
 
-function GeneratingView({ files, onCancel }: { files: AudioFile[]; onCancel: () => void }) {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [dots, setDots] = useState('');
-
-  useEffect(() => {
-    const t1 = setTimeout(() => setCurrentStep(1), 800);
-    const t2 = setTimeout(() => setCurrentStep(2), 2200);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setDots((d) => (d.length >= 3 ? '' : d + '·'));
-    }, 400);
-    return () => clearInterval(interval);
-  }, []);
-
+function GeneratingView({
+  files,
+  onCancel,
+  currentStep,
+  dots,
+  error,
+}: {
+  files: AudioFile[];
+  onCancel: () => void;
+  currentStep: number;
+  dots: string;
+  error: boolean;
+}) {
   return (
     <div className="-mx-4 -mb-5 min-h-full bg-[#F7F6FF] px-4 pt-6 pb-8 flex flex-col items-center">
-      {/* 스피너 */}
       <div className="relative w-20 h-20 flex items-center justify-center mb-6 mt-4">
         <svg className="absolute inset-0 w-full h-full animate-spin" style={{ animationDuration: '2s' }} viewBox="0 0 80 80">
           <circle cx="40" cy="40" r="36" fill="none" stroke="#DDD9FF" strokeWidth="3.5" />
@@ -98,9 +95,10 @@ function GeneratingView({ files, onCancel }: { files: AudioFile[]; onCancel: () 
         </div>
       </div>
 
-      <p className="text-[18px] font-bold text-zinc-800 mb-8">AI가 요약하고 있어요</p>
+      <p className="text-[18px] font-bold text-zinc-800 mb-8">
+        {error ? 'AI 처리 중 오류가 발생했습니다' : 'AI가 요약하고 있어요'}
+      </p>
 
-      {/* 진행 단계 */}
       <div className="w-full bg-white rounded-2xl overflow-hidden mb-4">
         {STEPS.map((label, idx) => {
           const status = idx < currentStep ? 'done' : idx === currentStep ? 'active' : 'waiting';
@@ -120,7 +118,6 @@ function GeneratingView({ files, onCancel }: { files: AudioFile[]; onCancel: () 
         })}
       </div>
 
-      {/* 업로드된 파일 */}
       {files.map(({ file, duration }, idx) => (
         <div key={idx} className="w-full bg-white rounded-2xl px-4 py-3.5 flex items-center gap-3 mb-4">
           <div className="w-9 h-9 rounded-lg bg-[#EBEBFF] flex items-center justify-center shrink-0">
@@ -135,7 +132,6 @@ function GeneratingView({ files, onCancel }: { files: AudioFile[]; onCancel: () 
         </div>
       ))}
 
-      {/* 취소 버튼 */}
       <button
         onClick={onCancel}
         className="w-full border border-zinc-200 bg-transparent text-[15px] font-medium text-zinc-600 py-3.5 rounded-xl"
@@ -149,17 +145,53 @@ function GeneratingView({ files, onCancel }: { files: AudioFile[]; onCancel: () 
 export default function MinutesCreatePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { setPageHeader } = useHeaderSlotStore();
   const [title, setTitle] = useState('');
   const [files, setFiles] = useState<AudioFile[]>([]);
   const [dragging, setDragging] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [dots, setDots] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setPageHeader({ title: '회의록 생성하기', hideHamburger: true });
     return () => setPageHeader(null);
   }, [setPageHeader]);
+
+  const createMutation = useMutation({
+    mutationFn: (recFileKey: string) =>
+      api.post('/api/meeting-records', { teamId: id, recFileKey }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meeting-records', id] });
+      router.back();
+    },
+    onError: () => {
+      setCurrentStep(0);
+    },
+  });
+
+  useEffect(() => {
+    if (!generating) return;
+    const interval = setInterval(() => {
+      setDots((d) => (d.length >= 3 ? '' : d + '·'));
+    }, 400);
+    const t1 = setTimeout(() => setCurrentStep(1), 600);
+    const t2 = setTimeout(() => setCurrentStep(2), 1500);
+    const t3 = setTimeout(() => {
+      setCurrentStep(3);
+      const fileKey = files[0]?.file.name ?? 'recording';
+      createMutation.mutate(fileKey);
+    }, 2500);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generating]);
 
   async function addFiles(incoming: FileList | null) {
     if (!incoming) return;
@@ -180,8 +212,22 @@ export default function MinutesCreatePage() {
     addFiles(e.dataTransfer.files);
   }
 
+  function startGenerating() {
+    setCurrentStep(0);
+    setDots('');
+    setGenerating(true);
+  }
+
   if (generating) {
-    return <GeneratingView files={files} onCancel={() => setGenerating(false)} />;
+    return (
+      <GeneratingView
+        files={files}
+        onCancel={() => { setGenerating(false); createMutation.reset(); }}
+        currentStep={currentStep}
+        dots={dots}
+        error={createMutation.isError}
+      />
+    );
   }
 
   return (
@@ -204,8 +250,7 @@ export default function MinutesCreatePage() {
           onDrop={handleDrop}
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
-          className={`border-2 border-dashed rounded-xl bg-white px-6 py-10 flex flex-col items-center gap-3 cursor-pointer transition-colors ${dragging ? 'border-[#3B3EFF] bg-blue-50' : 'border-[#3B3EFF]/50'
-            }`}
+          className={`border-2 border-dashed rounded-xl bg-white px-6 py-10 flex flex-col items-center gap-3 cursor-pointer transition-colors ${dragging ? 'border-[#3B3EFF] bg-blue-50' : 'border-[#3B3EFF]/50'}`}
         >
           <div className="w-14 h-14 rounded-2xl bg-[#EBEBFF] flex items-center justify-center">
             <svg width="30" height="30" fill="none" viewBox="0 0 24 24">
@@ -248,7 +293,7 @@ export default function MinutesCreatePage() {
 
       <button
         disabled={files.length === 0}
-        onClick={() => setGenerating(true)}
+        onClick={startGenerating}
         className="mx-1 bg-[#3B3EFF] disabled:bg-zinc-300 text-white text-[15px] font-semibold py-3.5 rounded-xl transition-colors"
       >
         AI 요약 생성

@@ -1,19 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
 
-const NEWS_ITEMS = [
-  { id: 1, group: '모임1', dot: '#f97316', content: "이 '새 공지를 작성했'어요", time: '10분 전', badge: null },
-  { id: 2, group: '모임2', dot: '#3b82f6', content: '새 투표가 시작됐어요. 참여해보세요!', time: '1시간 전', badge: { count: '128', label: '24시' } },
-  { id: 3, group: '모임1', dot: '#f97316', content: '이번 주 미션이 업데이트됐어요', time: '2시간 전', badge: null },
-  { id: 4, group: '모임3', dot: '#22c55e', content: '새 일정이 등록됐어요. 확인해보세요.', time: '어제', badge: null },
-];
-
-const RANKING = [
-  { rank: 1, score: 98, emoji: '🥇', isMe: false },
-  { rank: 2, score: 85, emoji: '🥈', isMe: false },
-  { rank: 3, score: 72, emoji: '🥉', isMe: false },
-];
+interface NewsResponse {
+  newsId: number;
+  targetType: string;
+  targetId: number;
+  newsContent: string;
+  teamId: string;
+}
 
 function CircleProgress({ pct, size = 84, sw = 7, color = '#111827' }: { pct: number; size?: number; sw?: number; color?: string }) {
   const r = (size - sw * 2) / 2;
@@ -51,46 +48,39 @@ function DonutChart({ pct, label, color }: { pct: number; label: string; color: 
 }
 
 export default function GroupHomePage() {
-  const [newsFilter, setNewsFilter] = useState<'전체' | '모임별'>('전체');
+  const { id } = useParams<{ id: string }>();
+
+  const { data: news = [], isLoading } = useQuery({
+    queryKey: ['news', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/news?teamId=${id}`);
+      return (data.data as NewsResponse[]).slice(0, 5);
+    },
+    enabled: !!id,
+  });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-4">
       {/* 최근 소식 */}
       <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[15px] font-bold">최근 소식</h2>
-          <div className="flex gap-1.5">
-            {(['전체', '모임별'] as const).map((f) => (
-              <button key={f} onClick={() => setNewsFilter(f)}
-                className={`text-xs px-3 py-1 rounded-full transition-colors ${newsFilter === f ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500'
-                  }`}>
-                {f}
-              </button>
-            ))}
-          </div>
-        </div>
+        <h2 className="text-[15px] font-bold mb-3">최근 소식</h2>
         <div className="space-y-2">
-          {NEWS_ITEMS.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-zinc-50">
-              <div className="relative shrink-0">
-                <div className="w-10 h-10 rounded-full bg-zinc-200" />
-                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white"
-                  style={{ backgroundColor: item.dot }} />
+          {isLoading && (
+            <div className="p-3 rounded-xl bg-zinc-50 animate-pulse h-14" />
+          )}
+          {!isLoading && news.length === 0 && (
+            <p className="text-[13px] text-zinc-400 py-2">최근 소식이 없습니다.</p>
+          )}
+          {news.map((item) => (
+            <div key={item.newsId} className="flex items-center gap-3 p-3 rounded-xl bg-zinc-50">
+              <div className="w-9 h-9 rounded-full bg-[#3B3EFF] shrink-0 flex items-center justify-center">
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <span className="inline-block text-[11px] font-semibold px-1.5 py-0.5 rounded mb-0.5"
-                  style={{ backgroundColor: item.dot + '22', color: item.dot }}>
-                  {item.group}
-                </span>
-                <p className="text-[13px] text-zinc-800 leading-snug truncate">{item.content}</p>
-                <p className="text-[11px] text-zinc-400 mt-0.5">{item.time}</p>
+                <p className="text-[13px] text-zinc-800 leading-snug">{item.newsContent}</p>
               </div>
-              {item.badge && (
-                <div className="shrink-0 flex flex-col items-end gap-1">
-                  <span className="text-[11px] bg-zinc-800 text-white rounded-full px-2 py-0.5 font-medium">{item.badge.count}</span>
-                  <span className="text-[11px] text-zinc-400">{item.badge.label}</span>
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -115,8 +105,8 @@ export default function GroupHomePage() {
             <p className="text-[11px] text-zinc-500 mb-1">나의 MBP MOP (Top 5)</p>
             <p className="text-[13px] font-bold mb-3">나의 순위: 4위 ⭐</p>
             <div className="space-y-2">
-              {RANKING.map((r) => (
-                <div key={r.rank} className="flex items-center gap-1.5">
+              {[{ score: 98, emoji: '🥇' }, { score: 85, emoji: '🥈' }, { score: 72, emoji: '🥉' }].map((r, i) => (
+                <div key={i} className="flex items-center gap-1.5">
                   <span className="text-[13px] w-5">{r.emoji}</span>
                   <div className="flex-1 h-1.5 bg-zinc-200 rounded-full overflow-hidden">
                     <div className="h-full rounded-full" style={{ width: `${r.score}%`, backgroundColor: '#374151' }} />
@@ -134,7 +124,6 @@ export default function GroupHomePage() {
             <div className="w-px h-16 bg-zinc-200" />
             <DonutChart pct={45} label="나의달성" color="#111827" />
           </div>
-          <p className="text-[11px] text-zinc-400 text-center mt-4">2월달의 주차 성취율 (5째 주) 입니다.</p>
         </div>
       </section>
     </div>

@@ -2,9 +2,8 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import api from '@/lib/api';
-import { useHeaderSlotStore } from '@/store/headerSlot';
 
 interface NoticeResponse {
   notiId: number;
@@ -63,7 +62,6 @@ export default function NoticeDetailPage() {
   const { id, noticeId } = useParams<{ id: string; noticeId: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { setEditSlot } = useHeaderSlotStore();
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { data: notice, isLoading } = useQuery({
@@ -99,17 +97,6 @@ export default function NoticeDetailPage() {
     },
   });
 
-  useEffect(() => {
-    if (!isLeader) return;
-    setEditSlot({
-      editing: false,
-      onEdit: () => router.push(`/${id}/notices/${noticeId}/edit`),
-      onSave: () => {},
-      onCancel: () => {},
-      onDelete: () => setDeleteOpen(true),
-    });
-    return () => setEditSlot(null);
-  }, [isLeader, id, noticeId]);
 
   if (isLoading) {
     return <div className="text-center py-20 text-zinc-500 text-sm">불러오는 중...</div>;
@@ -131,7 +118,25 @@ export default function NoticeDetailPage() {
         {notice.notiFix === 'Y' && (
           <p className="text-[11px] font-medium text-zinc-400 mb-2">고정됨</p>
         )}
-        <h1 className="text-[18px] font-bold text-zinc-900 break-words">{notice.notiTitle}</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-[18px] font-bold text-zinc-900 break-words flex-1">{notice.notiTitle}</h1>
+          {isLeader && (
+            <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+              <button
+                onClick={() => router.push(`/${id}/notices/${noticeId}/edit`)}
+                className="text-[13px] font-medium text-zinc-500 border border-zinc-200 rounded-lg px-3 py-1"
+              >
+                수정
+              </button>
+              <button
+                onClick={() => setDeleteOpen(true)}
+                className="text-[13px] font-medium text-zinc-500 border border-zinc-200 rounded-lg px-3 py-1"
+              >
+                삭제
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 날짜 · 작성자 */}

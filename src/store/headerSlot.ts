@@ -5,6 +5,7 @@ interface EditSlot {
   onEdit: () => void;
   onSave: () => void;
   onCancel: () => void;
+  onDelete?: () => void;
 }
 
 interface PageHeader {

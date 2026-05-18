@@ -33,16 +33,6 @@ export default function GroupHeader() {
   });
 
 
-  const segments = pathname.split('/');
-  let backHref = '/main';
-  if (segments.length >= 4) {
-    if (pathname.includes('/events/')) backHref = `/${segments[1]}/events`;
-    else if (pathname.includes('/notices/')) backHref = `/${segments[1]}/notices`;
-    else if (pathname.includes('/votes/')) backHref = `/${segments[1]}/votes`;
-    else if (pathname.includes('/minutes/')) backHref = `/${segments[1]}/minutes`;
-    else if (pathname.includes('/missions/')) backHref = `/${segments[1]}/missions`;
-  }
-=======
   const { data: myMember } = useQuery<MemberMe>({
     queryKey: ['memberMe', id],
     queryFn: async () => {

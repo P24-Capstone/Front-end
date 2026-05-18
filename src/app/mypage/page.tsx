@@ -96,7 +96,7 @@ export default function MyPage() {
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center text-zinc-400 text-sm">불러오는 중...</div>
       ) : (
-        <div className="flex flex-col flex-1">
+        <div className="flex flex-col flex-1 overflow-y-auto">
 
           {/* 프사 + 이름 */}
           <div className="flex flex-col items-center py-8">
@@ -127,7 +127,6 @@ export default function MyPage() {
               { label: '이름', value: user?.userName },
               { label: '전화번호', value: user?.userTel },
               { label: '이메일', value: user?.userEmail },
-              { label: '가입일', value: undefined },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-center py-2.5">
                 <span className="text-[13px] text-zinc-400 w-20 shrink-0">{label}</span>
@@ -195,15 +194,9 @@ export default function MyPage() {
             >
               <span className="text-[13px] text-zinc-800">비밀번호 변경</span>
             </button>
+            <button onClick={handleLogout} className="w-full flex items-center py-2.5 text-left text-[13px] text-zinc-800">로그아웃</button>
+            <button className="w-full flex items-center py-2.5 text-left text-[13px] text-zinc-800" onClick={() => router.push('/mypage/withdrawal')}>회원탈퇴</button>
           </div>
-
-          {/* 로그아웃 · 회원탈퇴 */}
-          <div className="flex items-center justify-center gap-4 py-6 mt-auto">
-            <button onClick={handleLogout} className="text-[13px] text-zinc-400">로그아웃</button>
-            <span className="text-zinc-200">|</span>
-            <button className="text-[13px] text-zinc-400">회원탈퇴</button>
-          </div>
-
         </div>
       )}
     </div>

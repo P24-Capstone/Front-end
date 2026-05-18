@@ -15,6 +15,8 @@ interface MemberResponse {
   procDtm: string | null;
   userId: string;
   teamId: string;
+  userImgId: number | null;
+  imgFileKey: string | null;
 }
 
 const STATE_LABELS: Record<string, string> = {
@@ -80,11 +82,10 @@ export default function MembersPage() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`shrink-0 text-[12px] font-medium px-3 py-1 rounded-full transition-colors ${
-                  activeTab === tab
-                    ? 'bg-zinc-900 text-white'
-                    : 'bg-zinc-100 text-zinc-500'
-                }`}
+                className={`shrink-0 text-[12px] font-medium px-3 py-1 rounded-full transition-colors ${activeTab === tab
+                  ? 'bg-zinc-900 text-white'
+                  : 'bg-zinc-100 text-zinc-500'
+                  }`}
               >
                 {label} {count}
               </button>
@@ -100,8 +101,12 @@ export default function MembersPage() {
         {filtered.map((m) => (
           <Link key={m.memId} href={`/${id}/members/${m.memId}`}>
             <div className="flex items-center gap-3 py-3 cursor-pointer hover:bg-zinc-50 transition-colors px-2 -mx-2 rounded-xl">
-              <div className="w-10 h-10 rounded-full bg-zinc-200 shrink-0 flex items-center justify-center text-[13px] font-medium text-zinc-500">
-                {m.memNic ? m.memNic[0] : '?'}
+              <div className="w-10 h-10 rounded-full bg-zinc-200 shrink-0 flex items-center justify-center text-[13px] font-medium text-zinc-500 overflow-hidden">
+                {m.imgFileKey ? (
+                  <img src={m.imgFileKey} alt="프로필" className="w-full h-full object-cover" />
+                ) : (
+                  m.memNic ? m.memNic[0] : '?'
+                )}
               </div>
               <div className="flex-1">
                 <p className="text-[13px] font-medium text-zinc-900">{m.memNic}</p>

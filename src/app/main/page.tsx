@@ -18,12 +18,22 @@ interface TeamResponse {
   code: string;
 }
 
-const MISSIONS = [
-  { id: 1, status: '진행 중', statusColor: '#22c55e', title: '책 읽고 인증하기', subtitle: '책 사진찍고 인증하기', deadline: 3 },
-  { id: 2, status: '진행 중', statusColor: '#f97316', title: '책 읽고 인증하기', subtitle: '책 사진찍고 인증하기', deadline: 5 },
-  { id: 3, status: '완료', statusColor: '#a1a1aa', title: '책 읽고 인증하기', subtitle: '책 사진찍고 인증하기', deadline: 0 },
-  { id: 4, status: '진행 중', statusColor: '#f97316', title: '책 읽고 인증하기', subtitle: '책 사진찍고 인증하기', deadline: 7 },
+const MOCK_MISSIONS = [
+  { id: 1, groupName: '독서클럽',   scope: '공통', authType: 'AI인증',   title: '한강, 채식주의자 독서인증!', subtitle: '책 사진 찍고 인증하기', status: '가능', deadline: '1시간' },
+  { id: 2, groupName: '러닝크루',   scope: '개인', authType: '수동인증', title: '독서 후 감상문 작성하기!',   subtitle: '감상문 파일 업로드',    status: '대기',  deadline: '30분'  },
+  { id: 3, groupName: '독서클럽',   scope: '공통', authType: '수동인증', title: '독서 후 감상문 작성하기!',   subtitle: '감상문 파일 업로드',    status: '실패',  deadline: null    },
+  { id: 4, groupName: '스터디그룹', scope: '개인', authType: 'AI인증',   title: '카프카, 변신 독서인증!',     subtitle: '책 사진 찍고 인증하기', status: '완료',  deadline: null    },
 ];
+
+const SCOPE_COLOR: Record<string, string> = { 공통: '#FF9E6A', 개인: '#E5638C' };
+const AUTH_COLOR: Record<string, string> = { 'AI인증': '#3B3EFF', '수동인증': '#31DBD5' };
+
+function deadlineColor(d: string | null) {
+  if (!d) return 'text-zinc-400';
+  if (d.includes('분') || d.includes('시간')) return 'text-[#f97316]';
+  const days = Number(d.replace(/[^0-9]/g, ''));
+  return days <= 3 ? 'text-[#f97316]' : 'text-[#3B3EFF]';
+}
 
 type TabType = '내 모임' | '미션';
 type MissionFilter = '진행 중' | '완료';
@@ -176,7 +186,11 @@ export default function MainPage() {
     },
   });
 
-  const filteredMissions = MISSIONS.filter((m) => m.status === missionFilter);
+  const filteredMissions = MOCK_MISSIONS.filter((m) =>
+    missionFilter === '진행 중'
+      ? m.status === '가능' || m.status === '대기' || m.status === '실패'
+      : m.status === '완료'
+  );
 
   return (
     <div className="w-full h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm relative">
@@ -256,7 +270,7 @@ export default function MainPage() {
 
         {/* 미션 탭 */}
         {tab === '미션' && (
-          <section className="pb-8">
+          <section className="pb-8 bg-zinc-100 min-h-full">
             {/* 정렬 */}
             <div className="flex items-center justify-center py-3 border-b border-zinc-100">
               <button
@@ -274,32 +288,60 @@ export default function MainPage() {
               </button>
             </div>
 
-            <div className="px-4">
+            <div className="px-4 flex flex-col gap-2 pt-3">
               {filteredMissions.length === 0 ? (
                 <p className="text-center text-[13px] text-zinc-400 py-10">미션이 없습니다.</p>
               ) : (
                 filteredMissions.map((m) => (
-                  <div key={m.id} className="flex items-center gap-3 py-3 border-b border-zinc-100">
-                    <div className="w-10 h-10 rounded-full bg-zinc-200 shrink-0" />
+                  <div key={m.id} className="bg-white rounded-lg px-4 py-3 flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full shrink-0 ${m.status === '완료' || m.status === '실패' ? 'bg-zinc-300' : 'bg-zinc-200'}`} />
                     <div className="flex-1 min-w-0">
-                      <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full mb-1 ${m.status === '진행 중' ? 'bg-[#3B3EFF] text-white' : 'bg-zinc-100 text-zinc-400'
-                        }`}>
-                        {m.status}
-                      </span>
-                      <p className="text-[12px] font-medium text-zinc-800 leading-tight">{m.title}</p>
-                      <p className="text-[11px] text-zinc-400 mt-1">{m.subtitle}</p>
-                    </div>
-                    {m.status === '진행 중' && (
-                      <div className="shrink-0 flex flex-col items-end gap-2">
-                        <button className="text-[11px] px-2.5 py-1 rounded-full border border-[#3B3EFF] text-[#3B3EFF] font-medium whitespace-nowrap">
-                          자동 인증하기
-                        </button>
-                        <p className="text-[10px]">
-                          <span className="text-zinc-800">마감까지 </span>
-                          <span className={m.deadline <= 3 ? 'text-[#f97316]' : 'text-[#3B3EFF]'}>{m.deadline}일</span>
-                        </p>
+                      <p className="text-[10px] text-zinc-400 font-medium mb-1">{m.groupName}</p>
+                      <div className="flex gap-1 mb-1">
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: SCOPE_COLOR[m.scope] }}>{m.scope}</span>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: AUTH_COLOR[m.authType] }}>{m.authType}</span>
                       </div>
-                    )}
+                      <p className="text-[12px] font-medium text-zinc-800 leading-tight">{m.title}</p>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">{m.subtitle}</p>
+                    </div>
+                    <div className="shrink-0 flex flex-col items-end gap-2">
+                      {m.status === '가능' && (
+                        <>
+                          <p className="text-[12px]"><span className="text-zinc-800">마감까지 </span><span className={deadlineColor(m.deadline)}>{m.deadline}</span></p>
+                          <button className="text-[12px] font-semibold text-white bg-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                            인증하기
+                          </button>
+                        </>
+                      )}
+                      {m.status === '대기' && (
+                        <>
+                          <p className="text-[12px]">{m.deadline ? <><span className="text-zinc-800">마감까지 </span><span className={deadlineColor(m.deadline)}>{m.deadline}</span></> : <span className="text-zinc-400">마감</span>}</p>
+                          <button className="text-[12px] font-semibold text-white bg-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                            승인 대기
+                          </button>
+                        </>
+                      )}
+                      {m.status === '실패' && (
+                        <>
+                          <span className="text-[12px] text-zinc-400">마감</span>
+                          <button className="text-[12px] font-semibold text-[#3B3EFF] bg-white border border-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                            인증 실패
+                          </button>
+                        </>
+                      )}
+                      {m.status === '완료' && (
+                        <>
+                          <span className="text-[12px] text-zinc-400">마감</span>
+                          <button className="text-[12px] font-medium text-zinc-400 bg-zinc-100 rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+                            인증 완료
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))
               )}

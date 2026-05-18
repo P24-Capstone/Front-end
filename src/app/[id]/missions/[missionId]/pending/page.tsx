@@ -2,34 +2,30 @@
 
 import { useEffect } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { useHeaderSlotStore } from '@/store/headerSlot';
+import api from '@/lib/api';
 
 const SCOPE_COLOR: Record<string, string> = { 공통: '#FF9E6A', 개인: '#E5638C' };
 const AUTH_COLOR: Record<string, string> = { 'AI인증': '#3B3EFF', '수동인증': '#31DBD5' };
 
-// TODO: 백엔드 연결 시 API로 교체
-const MOCK_SUBMISSION_AI = {
-  submittedAt: '2025-05-18 14:32',
-  images: 2,
-  text: '',
-  fileName: '',
-  rejectionReason: '',
-};
-const MOCK_SUBMISSION_MANUAL = {
-  submittedAt: '2025-05-18 11:10',
-  images: 0,
-  text: '채식주의자를 읽고 주인공 영혜의 심리 변화에 대해 감상문을 작성했습니다. 영혜가 꿈을 통해 폭력성을 인식하고 채식을 선택하는 과정이 인상 깊었습니다.',
-  fileName: '감상문_한강_채식주의자.pdf',
-  rejectionReason: '제출하신 파일이 미션 내용과 맞지 않아요.',
-};
+type Status = 'pending' | 'completed' | 'failed' | 'none';
 
-type Status = 'pending' | 'completed' | 'failed';
-
-const HEADER_TITLE: Record<Status, string> = {
+const HEADER_TITLE: Record<string, string> = {
   pending: '제출한 인증',
   completed: '인증 완료',
   failed: '인증 실패',
+  none: '인증 현황',
 };
+
+interface VerifyDetail {
+  verifyContent: string;
+  verifyRegDtm: string;
+  verifyState: string;
+  aiRejectYn: string | null;
+  rejectReason: string | null;
+  fileKeys: string[];
+}
 
 function MissionInfoCard({ scope, authType, title, subtitle, isAI }: {
   scope: string; authType: string; title: string; subtitle: string; isAI: boolean;
@@ -70,9 +66,21 @@ export default function MissionPendingPage() {
   const scope = searchParams.get('scope') ?? '공통';
   const title = searchParams.get('title') ?? '';
   const subtitle = searchParams.get('subtitle') ?? '';
-  const status = (searchParams.get('status') ?? 'pending') as Status;
   const isAI = authType === 'AI인증';
-  const submission = isAI ? MOCK_SUBMISSION_AI : MOCK_SUBMISSION_MANUAL;
+
+  const { data: submission, isLoading, isError } = useQuery<VerifyDetail>({
+    queryKey: ['mySubmission', missionId],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/missions/${missionId}/submissions/me`);
+      return data.data as VerifyDetail;
+    },
+    retry: false,
+  });
+
+  const status: Status = isError || !submission ? 'none'
+    : submission.verifyState === 'A' ? 'completed'
+    : submission.verifyState === 'R' ? 'failed'
+    : 'pending';
 
   useEffect(() => {
     setPageHeader({ title: HEADER_TITLE[status], hideHamburger: true });
@@ -80,6 +88,33 @@ export default function MissionPendingPage() {
   }, [setPageHeader, status]);
 
   const verifyHref = `/${id}/missions/${missionId}/verify?authType=${encodeURIComponent(authType)}&scope=${encodeURIComponent(scope)}&title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(subtitle)}`;
+
+  if (isLoading) {
+    return (
+      <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-4">
+        <MissionInfoCard scope={scope} authType={authType} title={title} subtitle={subtitle} isAI={isAI} />
+        <p className="text-center text-[13px] text-zinc-400 py-10">불러오는 중...</p>
+      </div>
+    );
+  }
+
+  if (status === 'none') {
+    return (
+      <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-4">
+        <MissionInfoCard scope={scope} authType={authType} title={title} subtitle={subtitle} isAI={isAI} />
+        <div className="bg-white rounded-xl px-4 py-6 flex flex-col items-center gap-2">
+          <p className="text-[14px] font-semibold text-zinc-800">아직 제출한 인증이 없어요.</p>
+          <p className="text-[12px] text-zinc-400">미션 인증을 제출해보세요!</p>
+        </div>
+        <button
+          onClick={() => router.push(verifyHref)}
+          className="w-full h-[52px] bg-[#3B3EFF] text-white rounded-2xl text-[15px] font-bold mt-2"
+        >
+          인증 제출하기
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-4">
@@ -96,7 +131,7 @@ export default function MissionPendingPage() {
           </div>
           <div className="flex-1">
             <p className="text-[13px] font-semibold text-zinc-800">승인 대기 중</p>
-            <p className="text-[11px] text-zinc-400 mt-0.5">제출일: {submission.submittedAt}</p>
+            <p className="text-[11px] text-zinc-400 mt-0.5">제출일: {submission?.verifyRegDtm}</p>
           </div>
           <span className="text-[11px] font-semibold text-amber-500 bg-amber-50 px-2.5 py-1 rounded-full">대기</span>
         </div>
@@ -111,7 +146,7 @@ export default function MissionPendingPage() {
           </div>
           <div className="flex-1">
             <p className="text-[13px] font-semibold text-zinc-800">인증이 완료됐어요!</p>
-            <p className="text-[11px] text-zinc-400 mt-0.5">제출일: {submission.submittedAt}</p>
+            <p className="text-[11px] text-zinc-400 mt-0.5">제출일: {submission?.verifyRegDtm}</p>
           </div>
           <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-100 px-2.5 py-1 rounded-full">완료</span>
         </div>
@@ -128,18 +163,18 @@ export default function MissionPendingPage() {
             <p className="text-[13px] font-semibold text-zinc-800">
               {isAI ? 'AI가 인식하지 못했어요' : '인증이 거절됐어요'}
             </p>
-            <p className="text-[11px] text-zinc-400 mt-0.5">제출일: {submission.submittedAt}</p>
+            <p className="text-[11px] text-zinc-400 mt-0.5">제출일: {submission?.verifyRegDtm}</p>
           </div>
           <span className="text-[11px] font-semibold text-red-500 bg-red-100 px-2.5 py-1 rounded-full">실패</span>
         </div>
       )}
 
       {/* 거절 사유 (수동인증 실패 시) */}
-      {status === 'failed' && !isAI && submission.rejectionReason && (
+      {status === 'failed' && !isAI && submission?.rejectReason && (
         <div className="flex flex-col gap-2">
           <p className="text-[14px] font-semibold text-zinc-800">거절 사유</p>
           <div className="bg-white rounded-xl p-4 border border-red-100">
-            <p className="text-[13px] text-zinc-600 leading-relaxed">{submission.rejectionReason}</p>
+            <p className="text-[13px] text-zinc-600 leading-relaxed">{submission.rejectReason}</p>
           </div>
         </div>
       )}
@@ -149,14 +184,9 @@ export default function MissionPendingPage() {
         <>
           <p className="text-[14px] font-semibold text-zinc-800">제출한 사진</p>
           <div className="flex gap-2.5">
-            {/* TODO: 백엔드 연결 시 실제 이미지 URL로 교체 */}
-            {Array.from({ length: submission.images }).map((_, i) => (
-              <div key={i} className="w-[88px] h-[88px] rounded-xl bg-zinc-200 shrink-0 flex items-center justify-center">
-                <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#a1a1aa" strokeWidth={1.5}>
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
+            {(submission?.fileKeys ?? []).map((url, i) => (
+              <div key={i} className="w-[88px] h-[88px] rounded-xl overflow-hidden bg-zinc-200 shrink-0">
+                <img src={url} alt="" className="w-full h-full object-cover" />
               </div>
             ))}
           </div>
@@ -174,10 +204,10 @@ export default function MissionPendingPage() {
           <div className="flex flex-col gap-2">
             <p className="text-[14px] font-semibold text-zinc-800">인증 내용</p>
             <div className="bg-white rounded-xl p-4">
-              <p className="text-[14px] text-zinc-700 leading-relaxed whitespace-pre-wrap">{submission.text}</p>
+              <p className="text-[14px] text-zinc-700 leading-relaxed whitespace-pre-wrap">{submission?.verifyContent ?? ''}</p>
             </div>
           </div>
-          {submission.fileName && (
+          {(submission?.fileKeys ?? []).length > 0 && (
             <div className="flex flex-col gap-2">
               <p className="text-[14px] font-semibold text-zinc-800">첨부 파일</p>
               <div className="bg-white rounded-xl px-4 py-3.5 flex items-center gap-3">
@@ -186,7 +216,7 @@ export default function MissionPendingPage() {
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                   </svg>
                 </div>
-                <p className="text-[13px] text-zinc-800 truncate">{submission.fileName}</p>
+                <p className="text-[13px] text-zinc-800 truncate">{submission?.fileKeys[0]?.split('/').pop() ?? '첨부 파일'}</p>
               </div>
             </div>
           )}

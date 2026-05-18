@@ -2,24 +2,26 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useHeaderSlotStore } from '@/store/headerSlot';
+import api from '@/lib/api';
 
 const SCOPE_COLOR: Record<string, string> = { 공통: '#FF9E6A', 개인: '#E5638C' };
 const AUTH_COLOR: Record<string, string> = { 'AI인증': '#3B3EFF', '수동인증': '#31DBD5' };
 
-// TODO: 백엔드 연결 시 submissionId로 fetch
-const MOCK_DETAIL_AI = {
-  submittedAt: '2025-05-18 14:32',
-  images: 2,
-  text: '',
-  fileName: '',
-};
-const MOCK_DETAIL_MANUAL = {
-  submittedAt: '2025-05-18 11:40',
-  images: 0,
-  text: '채식주의자를 읽고 주인공 영혜의 심리 변화에 대해 감상문을 작성했습니다. 영혜가 꿈을 통해 폭력성을 인식하고 채식을 선택하는 과정이 인상 깊었습니다.',
-  fileName: '감상문_한강_채식주의자.pdf',
-};
+interface VerifyDetail {
+  verifyId: number;
+  verifyContent: string;
+  verifyRegDtm: string;
+  aiRejectYn: string | null;
+  aiResult: string | null;
+  verifyState: string;
+  missionId: number;
+  memId: string;
+  memNic: string;
+  rejectReason: string | null;
+  fileKeys: string[];
+}
 
 function RejectPopup({ onConfirm, onCancel }: {
   onConfirm: (reason: string) => void;
@@ -56,36 +58,56 @@ function RejectPopup({ onConfirm, onCancel }: {
 }
 
 export default function SubmissionDetailPage() {
-  useParams<{ id: string; missionId: string; submissionId: string }>();
+  const { submissionId } = useParams<{ id: string; missionId: string; submissionId: string }>();
   const searchParams = useSearchParams();
   const { setPageHeader } = useHeaderSlotStore();
+  const queryClient = useQueryClient();
   const [rejectOpen, setRejectOpen] = useState(false);
-  const [decision, setDecision] = useState<'approved' | 'rejected' | null>(null);
 
   const authType = searchParams.get('authType') ?? 'AI인증';
   const scope = searchParams.get('scope') ?? '공통';
   const title = searchParams.get('title') ?? '';
   const subtitle = searchParams.get('subtitle') ?? '';
   const memberName = searchParams.get('memberName') ?? '멤버';
-  const aiResult = searchParams.get('aiResult') ?? '';
+  const aiResultParam = searchParams.get('aiResult') ?? '';
   const isAI = authType === 'AI인증';
-  const detail = isAI ? MOCK_DETAIL_AI : MOCK_DETAIL_MANUAL;
 
   useEffect(() => {
     setPageHeader({ title: '인증 확인', hideHamburger: true });
     return () => setPageHeader(null);
   }, [setPageHeader]);
 
-  const handleApprove = () => {
-    // TODO: 백엔드 연결 시 API 호출
-    setDecision('approved');
-  };
+  const { data: detail } = useQuery<VerifyDetail>({
+    queryKey: ['submission', submissionId],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/missions/submissions/${submissionId}`);
+      return data.data as VerifyDetail;
+    },
+  });
 
-  const handleReject = (_reason: string) => {
-    // TODO: 백엔드 연결 시 API 호출 (reason 포함)
-    setRejectOpen(false);
-    setDecision('rejected');
-  };
+  const decision: 'approved' | 'rejected' | null =
+    detail?.verifyState === 'A' ? 'approved' :
+    detail?.verifyState === 'R' ? 'rejected' : null;
+
+  const approveMutation = useMutation({
+    mutationFn: () => api.patch(`/api/missions/submissions/${submissionId}/approve`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['submission', submissionId] }),
+    onError: () => alert('승인에 실패했습니다.'),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (rejectReason: string) =>
+      api.patch(`/api/missions/submissions/${submissionId}/reject`, { rejectReason }),
+    onSuccess: () => {
+      setRejectOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['submission', submissionId] });
+    },
+    onError: () => alert('거절에 실패했습니다.'),
+  });
+
+  const aiResult = detail?.aiRejectYn === 'N' ? 'approved'
+    : detail?.aiRejectYn === 'Y' ? 'rejected'
+    : aiResultParam || null;
 
   return (
     <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-4">
@@ -116,11 +138,11 @@ export default function SubmissionDetailPage() {
       {/* 제출자 + AI 결과 */}
       <div className="bg-white rounded-xl px-4 py-3.5 flex items-center gap-3">
         <div className="w-9 h-9 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
-          <span className="text-[13px] font-bold text-white">{memberName[0]}</span>
+          <span className="text-[13px] font-bold text-white">{(detail?.memNic ?? memberName)[0]}</span>
         </div>
         <div className="flex-1">
-          <p className="text-[13px] font-semibold text-zinc-800">{memberName}</p>
-          <p className="text-[11px] text-zinc-400 mt-0.5">제출일: {detail.submittedAt}</p>
+          <p className="text-[13px] font-semibold text-zinc-800">{detail?.memNic ?? memberName}</p>
+          <p className="text-[11px] text-zinc-400 mt-0.5">제출일: {detail?.verifyRegDtm ?? ''}</p>
         </div>
         {isAI && aiResult && (
           <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${aiResult === 'approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
@@ -157,15 +179,22 @@ export default function SubmissionDetailPage() {
         <>
           <p className="text-[14px] font-semibold text-zinc-800">제출한 사진</p>
           <div className="flex gap-2.5">
-            {Array.from({ length: detail.images }).map((_, i) => (
-              <div key={i} className="w-[88px] h-[88px] rounded-xl bg-zinc-200 shrink-0 flex items-center justify-center">
-                <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#a1a1aa" strokeWidth={1.5}>
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
-              </div>
-            ))}
+            {(detail?.fileKeys ?? []).length > 0
+              ? (detail?.fileKeys ?? []).map((url, i) => (
+                  <div key={i} className="w-[88px] h-[88px] rounded-xl overflow-hidden bg-zinc-200 shrink-0">
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ))
+              : (
+                <div className="w-[88px] h-[88px] rounded-xl bg-zinc-200 shrink-0 flex items-center justify-center">
+                  <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#a1a1aa" strokeWidth={1.5}>
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                </div>
+              )
+            }
           </div>
         </>
       ) : (
@@ -173,10 +202,10 @@ export default function SubmissionDetailPage() {
           <div className="flex flex-col gap-2">
             <p className="text-[14px] font-semibold text-zinc-800">인증 내용</p>
             <div className="bg-white rounded-xl p-4">
-              <p className="text-[14px] text-zinc-700 leading-relaxed whitespace-pre-wrap">{detail.text}</p>
+              <p className="text-[14px] text-zinc-700 leading-relaxed whitespace-pre-wrap">{detail?.verifyContent ?? ''}</p>
             </div>
           </div>
-          {detail.fileName && (
+          {(detail?.fileKeys ?? []).length > 0 && (
             <div className="flex flex-col gap-2">
               <p className="text-[14px] font-semibold text-zinc-800">첨부 파일</p>
               <div className="bg-white rounded-xl px-4 py-3.5 flex items-center gap-3">
@@ -185,7 +214,7 @@ export default function SubmissionDetailPage() {
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                   </svg>
                 </div>
-                <p className="text-[13px] text-zinc-800 truncate">{detail.fileName}</p>
+                <p className="text-[13px] text-zinc-800 truncate">{detail?.fileKeys[0]?.split('/').pop() ?? '첨부 파일'}</p>
               </div>
             </div>
           )}
@@ -197,20 +226,27 @@ export default function SubmissionDetailPage() {
         <div className="flex gap-3 mt-2">
           <button
             onClick={() => setRejectOpen(true)}
-            className="flex-1 h-[52px] border border-red-400 text-red-500 rounded-2xl text-[15px] font-semibold"
+            disabled={rejectMutation.isPending || approveMutation.isPending}
+            className="flex-1 h-[52px] border border-red-400 text-red-500 rounded-2xl text-[15px] font-semibold disabled:opacity-50"
           >
             거절
           </button>
           <button
-            onClick={handleApprove}
-            className="flex-1 h-[52px] bg-[#3B3EFF] text-white rounded-2xl text-[15px] font-bold"
+            onClick={() => approveMutation.mutate()}
+            disabled={approveMutation.isPending || rejectMutation.isPending}
+            className="flex-1 h-[52px] bg-[#3B3EFF] text-white rounded-2xl text-[15px] font-bold disabled:opacity-50"
           >
-            승인
+            {approveMutation.isPending ? '처리 중...' : '승인'}
           </button>
         </div>
       )}
 
-      {rejectOpen && <RejectPopup onConfirm={handleReject} onCancel={() => setRejectOpen(false)} />}
+      {rejectOpen && (
+        <RejectPopup
+          onConfirm={(reason) => rejectMutation.mutate(reason)}
+          onCancel={() => setRejectOpen(false)}
+        />
+      )}
     </div>
   );
 }

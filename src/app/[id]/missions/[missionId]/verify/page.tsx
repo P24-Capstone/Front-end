@@ -3,12 +3,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { useHeaderSlotStore } from '@/store/headerSlot';
+import api from '@/lib/api';
 
 const SCOPE_COLOR: Record<string, string> = { 공통: '#FF9E6A', 개인: '#E5638C' };
 const AUTH_COLOR: Record<string, string> = { 'AI인증': '#3B3EFF', '수동인증': '#31DBD5' };
 
 export default function MissionVerifyPage() {
-  const { id } = useParams<{ id: string }>();
+  const { missionId } = useParams<{ id: string; missionId: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setPageHeader } = useHeaderSlotStore();
@@ -19,9 +20,10 @@ export default function MissionVerifyPage() {
   const subtitle = searchParams.get('subtitle') ?? '';
   const isAI = authType === 'AI인증';
 
-  const [images, setImages] = useState<string[]>([]);
+  const [imageItems, setImageItems] = useState<{ file: File; preview: string }[]>([]);
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachInputRef = useRef<HTMLInputElement>(null);
 
@@ -33,17 +35,55 @@ export default function MissionVerifyPage() {
   const handleImageAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     files.forEach((f) => {
-      const url = URL.createObjectURL(f);
-      setImages((prev) => (prev.length < 3 ? [...prev, url] : prev));
+      if (imageItems.length < 3) {
+        setImageItems((prev) => [...prev, { file: f, preview: URL.createObjectURL(f) }]);
+      }
     });
     e.target.value = '';
   };
 
   const handleRemoveImage = (i: number) => {
-    setImages((prev) => prev.filter((_, idx) => idx !== i));
+    setImageItems((prev) => prev.filter((_, idx) => idx !== i));
   };
 
-  const canSubmit = isAI ? images.length > 0 : text.trim().length > 0;
+  const canSubmit = isAI ? imageItems.length > 0 : text.trim().length > 0;
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      let imageUrl = '';
+      if (isAI && imageItems.length > 0) {
+        const form = new FormData();
+        form.append('file', imageItems[0].file);
+        const { data: uploadRes } = await api.post('/api/files/upload', form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        imageUrl = uploadRes.data as string;
+      }
+
+      let fileUrl = '';
+      if (!isAI && file) {
+        const form = new FormData();
+        form.append('file', file);
+        const { data: uploadRes } = await api.post('/api/files/upload', form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        fileUrl = uploadRes.data as string;
+      }
+
+      await api.post('/api/missions/verify', {
+        missionId: Number(missionId),
+        verifyContent: isAI ? '' : text,
+        imageUrl: isAI ? imageUrl : fileUrl,
+      });
+
+      router.back();
+    } catch {
+      alert('인증 제출에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-4">
@@ -65,12 +105,8 @@ export default function MissionVerifyPage() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex gap-1.5 mb-1.5">
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: SCOPE_COLOR[scope] ?? '#FF9E6A' }}>
-              {scope}
-            </span>
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: AUTH_COLOR[authType] ?? '#3B3EFF' }}>
-              {authType}
-            </span>
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: SCOPE_COLOR[scope] ?? '#FF9E6A' }}>{scope}</span>
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: AUTH_COLOR[authType] ?? '#3B3EFF' }}>{authType}</span>
           </div>
           <p className="text-[14px] font-bold text-zinc-900 leading-snug">{title}</p>
           <p className="text-[12px] text-zinc-400 mt-0.5">{subtitle}</p>
@@ -78,14 +114,13 @@ export default function MissionVerifyPage() {
       </div>
 
       {isAI ? (
-        /* AI 인증 */
         <>
           <div className="flex flex-col gap-3">
             <p className="text-[14px] font-semibold text-zinc-800">인증 사진 첨부</p>
             <div className="flex gap-2.5">
-              {images.map((src, i) => (
+              {imageItems.map((img, i) => (
                 <div key={i} className="relative w-[88px] h-[88px] rounded-xl overflow-hidden bg-zinc-100 shrink-0">
-                  <img src={src} alt="" className="w-full h-full object-cover" />
+                  <img src={img.preview} alt="" className="w-full h-full object-cover" />
                   <button
                     onClick={() => handleRemoveImage(i)}
                     className="absolute top-1 right-1 w-5 h-5 bg-white/80 rounded-full flex items-center justify-center"
@@ -96,7 +131,7 @@ export default function MissionVerifyPage() {
                   </button>
                 </div>
               ))}
-              {images.length < 3 && (
+              {imageItems.length < 3 && (
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="w-[88px] h-[88px] rounded-xl border-2 border-dashed border-zinc-200 hover:border-[#3B3EFF] flex items-center justify-center text-[#3B3EFF] shrink-0 transition-colors"
@@ -111,18 +146,14 @@ export default function MissionVerifyPage() {
             <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageAdd} />
           </div>
 
-          {/* AI 안내 */}
           <div className="flex items-start gap-2 bg-[#EEF0FF] rounded-xl px-4 py-3">
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#3B3EFF" strokeWidth={2} className="shrink-0 mt-0.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            <p className="text-[12px] text-[#3B3EFF] leading-relaxed">
-              AI가 사진을 자동으로 분석해요.
-            </p>
+            <p className="text-[12px] text-[#3B3EFF] leading-relaxed">AI가 사진을 자동으로 분석해요.</p>
           </div>
         </>
       ) : (
-        /* 수동 인증 */
         <>
           <div className="flex flex-col gap-2">
             <p className="text-[14px] font-semibold text-zinc-800">인증 내용 작성</p>
@@ -152,24 +183,20 @@ export default function MissionVerifyPage() {
                   <path d="M4 17v1.75C4 19.993 4.895 21 6 21h12c1.105 0 2-1.007 2-2.25V17" stroke="#3B3EFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <p className="text-[15px] font-bold text-zinc-800">
-                {file ? file.name : '파일 첨부하기'}
-              </p>
-              <p className="text-[13px] text-zinc-400 text-center leading-relaxed">
-                탭하여 파일을 선택하거나 여기로 끌어다 놓으세요
-              </p>
+              <p className="text-[15px] font-bold text-zinc-800">{file ? file.name : '파일 첨부하기'}</p>
+              <p className="text-[13px] text-zinc-400 text-center leading-relaxed">탭하여 파일을 선택하거나 여기로 끌어다 놓으세요</p>
             </button>
             <input ref={attachInputRef} type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           </div>
         </>
       )}
 
-      {/* 제출 버튼 */}
       <button
-        disabled={!canSubmit}
+        disabled={!canSubmit || submitting}
+        onClick={handleSubmit}
         className="w-full h-[52px] bg-[#3B3EFF] text-white rounded-2xl text-[15px] font-bold disabled:bg-zinc-300 disabled:text-zinc-500 transition-colors mt-2"
       >
-        인증 제출하기
+        {submitting ? '제출 중...' : '인증 제출하기'}
       </button>
     </div>
   );

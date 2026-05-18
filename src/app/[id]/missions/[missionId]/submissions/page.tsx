@@ -2,14 +2,9 @@
 
 import { useEffect } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { useHeaderSlotStore } from '@/store/headerSlot';
-
-const MOCK_SUBMISSIONS = [
-  { id: '1', memberName: '김철수', initial: '김', submittedAt: '14:32', authType: 'AI인증',   status: 'pending',   aiResult: 'approved' },
-  { id: '2', memberName: '이영희', initial: '이', submittedAt: '13:15', authType: 'AI인증',   status: 'failed',    aiResult: 'rejected' },
-  { id: '3', memberName: '박지수', initial: '박', submittedAt: '11:40', authType: '수동인증',  status: 'pending',   aiResult: null },
-  { id: '4', memberName: '최민준', initial: '최', submittedAt: '10:05', authType: '수동인증',  status: 'completed', aiResult: null },
-];
+import api from '@/lib/api';
 
 const SCOPE_COLOR: Record<string, string> = { 공통: '#FF9E6A', 개인: '#E5638C' };
 const AUTH_COLOR: Record<string, string> = { 'AI인증': '#3B3EFF', '수동인증': '#31DBD5' };
@@ -20,9 +15,21 @@ const STATUS_LABEL: Record<string, { text: string; color: string; bg: string }> 
   failed:    { text: '거절', color: '#ef4444', bg: '#fef2f2' },
 };
 
-function resolvedStatus(s: typeof MOCK_SUBMISSIONS[0]) {
-  if (s.authType === 'AI인증' && s.aiResult === 'approved') return 'completed';
-  return s.status;
+interface VerifyItem {
+  verifyId: number;
+  memNic: string;
+  verifyRegDtm: string;
+  verifyState: string;
+  aiRejectYn: string | null;
+  aiResult: string | null;
+  fileKeys: string[];
+}
+
+function resolveStatus(item: VerifyItem): 'pending' | 'completed' | 'failed' {
+  if (item.verifyState === 'A') return 'completed';
+  if (item.verifyState === 'R') return 'failed';
+  if (item.aiRejectYn === 'Y') return 'failed';
+  return 'pending';
 }
 
 export default function SubmissionsPage() {
@@ -41,9 +48,16 @@ export default function SubmissionsPage() {
     return () => setPageHeader(null);
   }, [setPageHeader]);
 
-  const byType = MOCK_SUBMISSIONS.filter((s) => s.authType === authType);
-  const pendingCount = byType.filter((s) => resolvedStatus(s) === 'pending').length;
-  const completedCount = byType.filter((s) => resolvedStatus(s) === 'completed').length;
+  const { data: submissions = [], isLoading } = useQuery<VerifyItem[]>({
+    queryKey: ['submissions', missionId],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/missions/${missionId}/submissions`);
+      return data.data as VerifyItem[];
+    },
+  });
+
+  const pendingCount = submissions.filter((s) => resolveStatus(s) === 'pending').length;
+  const completedCount = submissions.filter((s) => resolveStatus(s) === 'completed').length;
 
   return (
     <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-4">
@@ -83,7 +97,7 @@ export default function SubmissionsPage() {
             <span className="text-[11px] text-zinc-400">완료</span>
           </div>
           <div className="flex-1 bg-zinc-50 rounded-lg py-2.5 flex flex-col items-center gap-0.5">
-            <span className="text-[18px] font-bold text-zinc-800">{byType.length}</span>
+            <span className="text-[18px] font-bold text-zinc-800">{submissions.length}</span>
             <span className="text-[11px] text-zinc-400">전체</span>
           </div>
         </div>
@@ -91,23 +105,27 @@ export default function SubmissionsPage() {
 
       {/* 제출 목록 */}
       <div className="flex flex-col gap-2">
-        {byType.length === 0 ? (
+        {isLoading ? (
+          <p className="text-center text-[13px] text-zinc-400 py-10">불러오는 중...</p>
+        ) : submissions.length === 0 ? (
           <p className="text-center text-[13px] text-zinc-400 py-10">제출 내역이 없습니다.</p>
-        ) : byType.map((s) => {
-          const status = resolvedStatus(s);
+        ) : submissions.map((s) => {
+          const status = resolveStatus(s);
           const st = STATUS_LABEL[status];
-          const href = `/${id}/missions/${missionId}/submissions/${s.id}?authType=${encodeURIComponent(s.authType)}&scope=${encodeURIComponent(scope)}&title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(subtitle)}&memberName=${encodeURIComponent(s.memberName)}&aiResult=${s.aiResult ?? ''}`;
+          const submittedTime = s.verifyRegDtm?.substring(11, 16) ?? '';
+          const aiResultLabel = s.aiRejectYn === 'N' ? 'approved' : s.aiRejectYn === 'Y' ? 'rejected' : null;
+          const href = `/${id}/missions/${missionId}/submissions/${s.verifyId}?authType=${encodeURIComponent(authType)}&scope=${encodeURIComponent(scope)}&title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(subtitle)}&memberName=${encodeURIComponent(s.memNic)}&aiResult=${aiResultLabel ?? ''}`;
           return (
-            <button key={s.id} onClick={() => router.push(href)}
+            <button key={s.verifyId} onClick={() => router.push(href)}
               className="bg-white rounded-xl px-4 py-3.5 flex items-center gap-3 text-left w-full">
               <div className="w-9 h-9 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
-                <span className="text-[13px] font-bold text-white">{s.initial}</span>
+                <span className="text-[13px] font-bold text-white">{s.memNic[0]}</span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-zinc-900">{s.memberName}</p>
-                {s.authType === 'AI인증' && s.aiResult && (
-                  <span className={`text-[10px] font-medium mt-0.5 ${s.aiResult === 'approved' ? 'text-emerald-500' : 'text-red-400'}`}>
-                    AI {s.aiResult === 'approved' ? '승인' : '거절'}
+                <p className="text-[13px] font-semibold text-zinc-900">{s.memNic}</p>
+                {isAI && aiResultLabel && (
+                  <span className={`text-[10px] font-medium mt-0.5 ${aiResultLabel === 'approved' ? 'text-emerald-500' : 'text-red-400'}`}>
+                    AI {aiResultLabel === 'approved' ? '승인' : '거절'}
                   </span>
                 )}
               </div>
@@ -115,7 +133,7 @@ export default function SubmissionsPage() {
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ color: st.color, backgroundColor: st.bg }}>
                   {st.text}
                 </span>
-                <span className="text-[11px] text-zinc-400">{s.submittedAt}</span>
+                <span className="text-[11px] text-zinc-400">{submittedTime}</span>
               </div>
               <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#d4d4d8" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />

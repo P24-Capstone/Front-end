@@ -19,10 +19,10 @@ interface TeamResponse {
 }
 
 const MOCK_MISSIONS = [
-  { id: 1, groupName: '독서클럽',   scope: '공통', authType: 'AI인증',   title: '한강, 채식주의자 독서인증!', subtitle: '책 사진 찍고 인증하기', status: '가능', deadline: '1시간' },
-  { id: 2, groupName: '러닝크루',   scope: '개인', authType: '수동인증', title: '독서 후 감상문 작성하기!',   subtitle: '감상문 파일 업로드',    status: '대기',  deadline: '30분'  },
-  { id: 3, groupName: '독서클럽',   scope: '공통', authType: '수동인증', title: '독서 후 감상문 작성하기!',   subtitle: '감상문 파일 업로드',    status: '실패',  deadline: null    },
-  { id: 4, groupName: '스터디그룹', scope: '개인', authType: 'AI인증',   title: '카프카, 변신 독서인증!',     subtitle: '책 사진 찍고 인증하기', status: '완료',  deadline: null    },
+  { id: 1, groupName: '독서클럽', scope: '공통', authType: 'AI인증', title: '한강, 채식주의자 독서인증!', subtitle: '책 사진 찍고 인증하기', status: '가능', deadline: '1시간' },
+  { id: 2, groupName: '러닝크루', scope: '개인', authType: '수동인증', title: '독서 후 감상문 작성하기!', subtitle: '감상문 파일 업로드', status: '대기', deadline: '30분' },
+  { id: 3, groupName: '독서클럽', scope: '공통', authType: '수동인증', title: '독서 후 감상문 작성하기!', subtitle: '감상문 파일 업로드', status: '실패', deadline: null },
+  { id: 4, groupName: '스터디그룹', scope: '개인', authType: 'AI인증', title: '카프카, 변신 독서인증!', subtitle: '책 사진 찍고 인증하기', status: '완료', deadline: null },
 ];
 
 
@@ -35,7 +35,7 @@ function deadlineColor(d: string | null) {
   const days = Number(d.replace(/[^0-9]/g, ''));
   return days <= 3 ? 'text-[#f97316]' : 'text-[#3B3EFF]';
 }
-=======
+
 const NEWS_COLORS = ['#3B3EFF', '#FF9E6A', '#57B37A', '#E5638C', '#31DBD5'];
 
 const NEWS_ITEMS = [
@@ -285,13 +285,13 @@ export default function MainPage() {
   });
 
 
-  const filteredMissions = MOCK_MISSIONS.filter((m) =>
-    missionFilter === '진행 중'
-      ? m.status === '가능' || m.status === '대기' || m.status === '실패'
-      : m.status === '완료'
-  );
-=======
-  const filteredMissions = missionFilter === '전체' ? MISSIONS : MISSIONS.filter((m) => m.status === missionFilter);
+  const filteredMissions = missionFilter === '전체'
+    ? MOCK_MISSIONS
+    : MOCK_MISSIONS.filter((m) =>
+      missionFilter === '진행 중'
+        ? m.status === '가능' || m.status === '대기' || m.status === '실패'
+        : m.status === '완료'
+    );
 
 
   return (

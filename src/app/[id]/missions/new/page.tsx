@@ -6,6 +6,13 @@ import { useHeaderSlotStore } from '@/store/headerSlot';
 
 const INPUT_CLS = 'w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-[14px] text-zinc-800 placeholder:text-zinc-300 outline-none focus:border-[#3B3EFF] transition-colors bg-white';
 
+// TODO: 백엔드 연결 시 API로 교체
+const MOCK_MEMBERS = [
+  { id: 'M1', name: '김철수', initial: '김' },
+  { id: 'M2', name: '이영희', initial: '이' },
+  { id: 'M3', name: '박지수', initial: '박' },
+];
+
 export default function MissionNewPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -16,6 +23,7 @@ export default function MissionNewPage() {
 
   const [title, setTitle] = useState('');
   const [scope, setScope] = useState<'공통' | '개인'>('공통');
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [content, setContent] = useState('');
@@ -30,7 +38,7 @@ export default function MissionNewPage() {
     return () => setPageHeader(null);
   }, [setPageHeader, isForm]);
 
-  const canSubmit = title.trim() && startDate && endDate && content.trim();
+  const canSubmit = title.trim() && startDate && endDate && content.trim() && (scope === '공통' || !!selectedMemberId);
 
   return (
     <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-4">
@@ -49,13 +57,13 @@ export default function MissionNewPage() {
         </div>
 
         {/* 대상자 */}
-        <div>
-          <label className="block text-[13px] font-medium text-zinc-500 mb-1.5">대상자</label>
+        <div className="flex flex-col gap-2">
+          <label className="block text-[13px] font-medium text-zinc-500">대상자</label>
           <div className="flex gap-2">
             {(['공통', '개인'] as const).map((s) => (
               <button
                 key={s}
-                onClick={() => setScope(s)}
+                onClick={() => { setScope(s); setSelectedMemberId(null); }}
                 className={`flex-1 py-2.5 rounded-lg border text-[14px] font-medium transition-colors ${
                   scope === s ? 'bg-[#3B3EFF] border-[#3B3EFF] text-white' : 'border-zinc-200 text-zinc-400 bg-white'
                 }`}
@@ -64,6 +72,30 @@ export default function MissionNewPage() {
               </button>
             ))}
           </div>
+          {scope === '개인' && (
+            <div className="flex flex-col gap-2">
+              <p className="text-[12px] text-zinc-400">부여할 멤버를 선택해주세요.</p>
+              {MOCK_MEMBERS.map((mem) => (
+                <button
+                  key={mem.id}
+                  onClick={() => setSelectedMemberId(mem.id)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
+                    selectedMemberId === mem.id ? 'border-[#3B3EFF] bg-[#EBEBFF]' : 'border-zinc-200 bg-white'
+                  }`}
+                >
+                  <div className="w-8 h-8 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
+                    <span className="text-[12px] font-bold text-white">{mem.initial}</span>
+                  </div>
+                  <span className={`text-[14px] font-medium ${selectedMemberId === mem.id ? 'text-[#3B3EFF]' : 'text-zinc-800'}`}>{mem.name}</span>
+                  {selectedMemberId === mem.id && (
+                    <svg className="ml-auto" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#3B3EFF" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 시작일 / 마감일 */}

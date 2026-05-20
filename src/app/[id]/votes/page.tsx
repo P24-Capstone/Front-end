@@ -27,6 +27,8 @@ interface VoteResponse {
   voteRegDtm: string;
   teamId: string;
   options: VoteOption[];
+  myVoted: boolean;
+  myOptSns: number[];
 }
 
 interface MemberResponse {
@@ -129,14 +131,29 @@ export default function VotesPage() {
             const daysLeft = getDaysLeft(vote.voteEndDt);
             const isEnded = daysLeft === null;
             const totalVotes = vote.options.reduce((sum, o) => sum + o.voteCount, 0);
+            const mySelectedOption = vote.myVoted
+              ? vote.options.find((o) => vote.myOptSns.includes(o.optSn))
+              : null;
             const btnBlue = 'text-[12px] font-semibold text-white bg-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1';
+            const btnOutline = 'text-[12px] font-semibold text-[#3B3EFF] border border-[#3B3EFF] bg-white rounded-lg px-3.5 py-1.5 flex items-center gap-1';
 
             return (
               <div key={vote.voteId} className="bg-white rounded-lg px-4 py-3">
                 <div className="flex items-stretch justify-between gap-3">
-                  <div className="flex-1 min-w-0 flex flex-col justify-between">
-                    <p className="text-[15px] font-bold text-zinc-900">{vote.voteTitle}</p>
-                    <p className="text-[12px] text-zinc-400 mb-1">총 {totalVotes}표</p>
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[15px] font-bold text-zinc-900 leading-tight">{vote.voteTitle}</p>
+                      {vote.myVoted && !isEnded && (
+                        <span className="shrink-0 text-[10px] font-semibold text-[#3B3EFF] bg-[#EBEBFF] px-1.5 py-0.5 rounded-full">참여</span>
+                      )}
+                    </div>
+                    {mySelectedOption && !isEnded && (
+                      <p className="text-[12px] text-zinc-500">
+                        선택:{' '}
+                        <span className="font-semibold text-zinc-800">{mySelectedOption.optContent}</span>
+                      </p>
+                    )}
+                    <p className="text-[12px] text-zinc-400">총 {totalVotes}표</p>
                   </div>
                   <div className="flex flex-col items-end gap-2 shrink-0">
                     {isEnded ? (
@@ -147,6 +164,15 @@ export default function VotesPage() {
                     {isEnded ? (
                       <Link href={`/${id}/votes/${vote.voteId}?mode=results`}>
                         <button className={btnBlue}><IconSearch />결과 확인</button>
+                      </Link>
+                    ) : vote.myVoted ? (
+                      <Link href={`/${id}/votes/${vote.voteId}`}>
+                        <button className={btnOutline}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          수정하기
+                        </button>
                       </Link>
                     ) : (
                       <Link href={`/${id}/votes/${vote.voteId}`}>

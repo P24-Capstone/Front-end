@@ -36,16 +36,6 @@ function deadlineColor(d: string | null) {
   return days <= 3 ? 'text-[#f97316]' : 'text-[#3B3EFF]';
 }
 
-const NEWS_COLORS = ['#3B3EFF', '#FF9E6A', '#57B37A', '#E5638C', '#31DBD5'];
-
-const NEWS_ITEMS = [
-  { id: 1, group: '모임1', colorIdx: 0, content: '새 공지를 작성했어요', time: '10분 전' },
-  { id: 2, group: '모임2', colorIdx: 1, content: '새 투표가 시작됐어요. 참여해보세요!', time: '1시간 전' },
-  { id: 3, group: '모임1', colorIdx: 0, content: '이번 주 미션이 업데이트됐어요', time: '2시간 전' },
-  { id: 4, group: '모임3', colorIdx: 2, content: '새 일정이 등록됐어요. 확인해보세요.', time: '어제' },
-];
-
-
 type TabType = '내 모임' | '미션';
 type MissionFilter = '전체' | '진행 중' | '완료';
 
@@ -257,11 +247,222 @@ function JoinByCodeModal({ onClose, onSuccess }: { onClose: () => void, onSucces
   );
 }
 
+interface NewsResponse {
+  newsId: number;
+  targetType: string;
+  targetId: number | null;
+  newsContent: string;
+  teamId: string;
+}
+
+interface CommentResponse {
+  cmtId: number;
+  cmtContent: string;
+  cmtRegDtm: string;
+  cmtModDtm: string;
+  newsId: number;
+  memId: string;
+}
+
+const TARGET_BG: Record<string, string> = {
+  N: 'bg-amber-100',
+  V: 'bg-[#EBEBFF]',
+  E: 'bg-green-100',
+  M: 'bg-purple-100',
+  I: 'bg-blue-50',
+  A: 'bg-rose-100',
+};
+
+function NewsIcon({ type }: { type: string }) {
+  if (type === 'N') return (
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#d97706" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+    </svg>
+  );
+  if (type === 'V') return (
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#3B3EFF" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+  if (type === 'E') return (
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2}>
+      <rect x="3" y="4" width="18" height="18" rx="2" strokeLinecap="round" />
+      <path strokeLinecap="round" d="M16 2v4M8 2v4M3 10h18" />
+    </svg>
+  );
+  if (type === 'M') return (
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#9333ea" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  );
+  if (type === 'I') return (
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  );
+  if (type === 'A') return (
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#e11d48" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  );
+  return (
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#6b7280" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function getNewsLink(item: NewsResponse): string | null {
+  if (item.targetId == null) return null;
+  const base = `/${item.teamId}`;
+  switch (item.targetType) {
+    case 'N': return `${base}/notices/${item.targetId}`;
+    case 'E': return `${base}/events/${item.targetId}`;
+    case 'V': return `${base}/votes/${item.targetId}`;
+    case 'I': return `${base}/minutes/${item.targetId}`;
+    default: return null;
+  }
+}
+
+function HomeNewsCard({ news, teamName }: { news: NewsResponse; teamName?: string }) {
+  const [showComments, setShowComments] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const queryClient = useQueryClient();
+
+  const canComment = news.targetType === 'M' || news.targetType === 'A';
+  const link = getNewsLink(news);
+  const bgCls = TARGET_BG[news.targetType] ?? 'bg-zinc-100';
+
+  const { data: comments = [], isLoading: loadingComments } = useQuery({
+    queryKey: ['comments', news.newsId],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/news/${news.newsId}/comments`);
+      return data.data as CommentResponse[];
+    },
+    enabled: showComments && canComment,
+  });
+
+  const addCommentMutation = useMutation({
+    mutationFn: () =>
+      api.post('/api/news/comments', { newsId: news.newsId, cmtContent: commentText.trim() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments', news.newsId] });
+      setCommentText('');
+    },
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: (cmtId: number) => api.delete(`/api/news/comments/${cmtId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comments', news.newsId] }),
+  });
+
+  const inner = (
+    <div className="flex items-start gap-3 px-3 py-3">
+      <div className={`w-8 h-8 rounded-full ${bgCls} shrink-0 flex items-center justify-center`}>
+        <NewsIcon type={news.targetType} />
+      </div>
+      <div className="flex-1 min-w-0 pt-0.5">
+        {teamName && (
+          <span className="inline-block text-[10px] font-semibold text-[#3B3EFF] bg-[#EBEBFF] px-1.5 py-0.5 rounded-full mb-1 truncate max-w-full">
+            {teamName}
+          </span>
+        )}
+        <p className="text-[13px] text-zinc-800 leading-snug">{news.newsContent}</p>
+      </div>
+      {link && (
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#a1a1aa" strokeWidth={2} className="shrink-0 mt-0.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      )}
+    </div>
+  );
+
+  if (link) {
+    return (
+      <Link href={link} className="block bg-zinc-50 rounded-xl hover:bg-zinc-100 transition-colors">
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <div className="bg-zinc-50 rounded-xl overflow-hidden">
+      {inner}
+      {canComment && (
+        <>
+          <div className="px-3 pb-2 border-t border-zinc-100">
+            <button
+              onClick={() => setShowComments(!showComments)}
+              className="flex items-center gap-1 text-[12px] text-zinc-400 mt-2"
+            >
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              댓글 {showComments && comments.length > 0 ? `(${comments.length})` : ''}
+            </button>
+          </div>
+          {showComments && (
+            <div className="border-t border-zinc-100 px-3 py-3 flex flex-col gap-3">
+              {loadingComments ? (
+                <p className="text-[12px] text-zinc-400">불러오는 중...</p>
+              ) : (
+                <>
+                  {comments.length === 0 && (
+                    <p className="text-[12px] text-zinc-400">첫 댓글을 남겨보세요.</p>
+                  )}
+                  {comments.map((cmt) => (
+                    <div key={cmt.cmtId} className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                        <div className="w-6 h-6 rounded-full bg-zinc-200 shrink-0 flex items-center justify-center text-[10px] text-zinc-500 font-medium">
+                          {cmt.memId?.slice(0, 1) || '?'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] text-zinc-700 leading-snug">{cmt.cmtContent}</p>
+                          <p className="text-[10px] text-zinc-400 mt-0.5">{cmt.cmtRegDtm?.slice(0, 16)}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => deleteCommentMutation.mutate(cmt.cmtId)}
+                        className="shrink-0 text-zinc-300 hover:text-red-400 transition-colors pt-0.5"
+                      >
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </>
+              )}
+              <div className="flex gap-2">
+                <input
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && commentText.trim()) addCommentMutation.mutate(); }}
+                  placeholder="댓글 입력..."
+                  className="flex-1 border border-zinc-200 rounded-lg px-3 py-1.5 text-[13px] outline-none focus:border-[#3B3EFF] bg-white"
+                />
+                <button
+                  disabled={!commentText.trim() || addCommentMutation.isPending}
+                  onClick={() => addCommentMutation.mutate()}
+                  className="px-3 py-1.5 bg-[#3B3EFF] text-white rounded-lg text-[12px] font-semibold disabled:bg-zinc-200 disabled:text-zinc-400"
+                >
+                  등록
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function MainPage() {
   const [tab, setTab] = useState<TabType>('내 모임');
   const [missionFilter, setMissionFilter] = useState<MissionFilter>('전체');
   const [menuOpen, setMenuOpen] = useState(false);
   const [joinModalOpen, setJoinModalOpen] = useState(false);
+  const [newsLimit, setNewsLimit] = useState(5);
   const queryClient = useQueryClient();
 
   const { data: user } = useQuery({
@@ -275,8 +476,9 @@ export default function MainPage() {
   const name = user?.userName || '사용자';
   const email = user?.userEmail || '';
   const initial = name[0] || '?';
+  const id = user?.userId || '';
 
-  const { data: myTeams, isLoading } = useQuery({
+  const { data: myTeams} = useQuery({
     queryKey: ['myTeams'],
     queryFn: async () => {
       const { data } = await api.get('/api/teams/my');
@@ -284,6 +486,17 @@ export default function MainPage() {
     },
   });
 
+  const { data: waitTeams } = useQuery({
+    queryKey: ['waitTeams'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/teams/my/waiting');
+      return data.data as TeamResponse[];
+    },
+  });
+
+  const teamNameMap = Object.fromEntries(
+    (myTeams ?? []).map((t) => [t.teamId, t.teamName])
+  );
 
   const filteredMissions = missionFilter === '전체'
     ? MOCK_MISSIONS
@@ -293,6 +506,14 @@ export default function MainPage() {
         : m.status === '완료'
     );
 
+  const { data: news = [], isLoading } = useQuery({
+    queryKey: ['news', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/news/all`);
+      return data.data as NewsResponse[];
+    },
+    enabled: !!id,
+  });
 
   return (
     <div className="w-full h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm relative">
@@ -371,37 +592,49 @@ export default function MainPage() {
             {/* 대기 중인 모임 */}
             <div>
               <p className="text-[13px] font-semibold text-zinc-500 mb-3">
-                대기 중인 모임 <span className="text-zinc-400">(0개)</span>
+                대기 중인 모임 <span className="text-zinc-400">({waitTeams?.length ?? 0}개)</span>
               </p>
-              <p className="text-[13px] text-zinc-300 py-4 text-center">수락 대기 중인 모임이 없습니다.</p>
+              <div className="grid grid-cols-3 gap-2">
+                {waitTeams && waitTeams.map((group, i) => (
+                  <div key={group.teamId} className="aspect-square rounded-xl overflow-hidden opacity-60 relative">
+                    <div
+                      className="w-full h-full flex items-end p-2"
+                      style={{ backgroundColor: GROUP_COLORS[i % GROUP_COLORS.length] }}
+                    >
+                      <div className="w-full">
+                        <p className="text-[11px] font-semibold text-zinc-800 leading-tight truncate">{group.teamName}</p>
+                        <p className="text-[10px] text-zinc-500">승인 대기 중</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {!waitTeams && <p className="text-center text-[13px] text-zinc-400 py-8">불러오는 중...</p>}
             </div>
 
             {/* 최근 소식 */}
             <div>
               <p className="text-[13px] font-semibold text-zinc-500 mb-3">최근 소식</p>
               <div className="space-y-2">
-                {NEWS_ITEMS.map((item) => {
-                  const color = NEWS_COLORS[item.colorIdx];
-                  return (
-                    <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-zinc-50">
-                      <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold"
-                        style={{ backgroundColor: color }}>
-                        {item.group[0]}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full mb-0.5 text-white"
-                          style={{ backgroundColor: color }}>
-                          {item.group}
-                        </span>
-                        <p className="text-[13px] text-zinc-800 leading-snug">{item.content}</p>
-                        <p className="text-[11px] text-zinc-400 mt-0.5">{item.time}</p>
-                      </div>
-                    </div>
-                  );
-                })}
+                {isLoading && (
+                  <div className="p-3 rounded-xl bg-zinc-50 animate-pulse h-14" />
+                )}
+                {!isLoading && news.length === 0 && (
+                  <p className="text-[13px] text-zinc-400 py-2">최근 소식이 없습니다.</p>
+                )}
+                {news.slice(0, newsLimit).map((item) => (
+                  <HomeNewsCard key={item.newsId} news={item} teamName={teamNameMap[item.teamId]} />
+                ))}
               </div>
+              {news.length > newsLimit && (
+                <button
+                  onClick={() => setNewsLimit((prev) => prev + 5)}
+                  className="w-full mt-2 py-2 text-[13px] text-zinc-500 hover:text-zinc-800 font-medium transition-colors"
+                >
+                  더보기
+                </button>
+              )}
             </div>
-
           </section>
         )}
 

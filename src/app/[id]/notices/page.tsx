@@ -17,6 +17,11 @@ interface NoticeResponse {
   teamId: string;
 }
 
+interface MemberMe {
+  memRole: string;
+  memState: string;
+}
+
 type SortType = '최근순' | '제목순';
 
 function PinIcon() {
@@ -70,6 +75,17 @@ export default function NoticesPage() {
     enabled: !!id,
   });
 
+  const { data: myMember } = useQuery<MemberMe>({
+    queryKey: ['memberMe', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/members/me?teamId=${id}`);
+      return data.data;
+    },
+    enabled: !!id,
+  });
+
+  const isLeader = myMember?.memRole === 'L' && myMember?.memState === 'A';
+
   if (isLoading) {
     return <div className="text-center py-10 text-zinc-500 text-sm">불러오는 중...</div>;
   }
@@ -119,16 +135,18 @@ export default function NoticesPage() {
       </div>
 
       {/* 글쓰기 플로팅 버튼 */}
-      <Link
-        href={`/${id}/notices/new`}
-        className="fixed bottom-[80px] right-6 w-12 h-12 bg-[#3B3EFF] rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-colors z-10 max-w-[390px]"
-        style={{ right: 'calc(50% - 195px + 24px)', left: 'auto' }}
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </Link>
+      {isLeader && (
+        <Link
+          href={`/${id}/notices/new`}
+          className="fixed bottom-[80px] right-6 w-12 h-12 bg-[#3B3EFF] rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-colors z-10 max-w-[390px]"
+          style={{ right: 'calc(50% - 195px + 24px)', left: 'auto' }}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </Link>
+      )}
     </div>
   );
 }

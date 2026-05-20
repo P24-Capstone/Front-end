@@ -246,12 +246,12 @@ function DonutChart({ pct, label, color }: { pct: number; label: string; color: 
 
 export default function GroupHomePage() {
   const { id } = useParams<{ id: string }>();
-
+  const [newsLimit, setNewsLimit] = useState(5);
   const { data: news = [], isLoading } = useQuery({
     queryKey: ['news', id],
     queryFn: async () => {
       const { data } = await api.get(`/api/news?teamId=${id}`);
-      return (data.data as NewsResponse[]).slice(0, 5);
+      return data.data as NewsResponse[];
     },
     enabled: !!id,
   });
@@ -268,10 +268,18 @@ export default function GroupHomePage() {
           {!isLoading && news.length === 0 && (
             <p className="text-[13px] text-zinc-400 py-2">최근 소식이 없습니다.</p>
           )}
-          {news.map((item) => (
+          {news.slice(0, newsLimit).map((item) => (
             <HomeNewsCard key={item.newsId} news={item} />
           ))}
         </div>
+        {news.length > newsLimit && (
+                <button
+                  onClick={() => setNewsLimit((prev) => prev + 5)}
+                  className="w-full mt-2 py-2 text-[13px] text-zinc-500 hover:text-zinc-800 font-medium transition-colors"
+                >
+                  더보기
+                </button>
+              )}
       </section>
 
       {/* 나의 대시보드 */}

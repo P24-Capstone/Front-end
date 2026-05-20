@@ -262,6 +262,8 @@ interface CommentResponse {
   cmtModDtm: string;
   newsId: number;
   memId: string;
+  memNic?: string;
+  userImg?: string;
 }
 
 const TARGET_BG: Record<string, string> = {
@@ -324,9 +326,11 @@ function getNewsLink(item: NewsResponse): string | null {
   }
 }
 
-function HomeNewsCard({ news, teamName }: { news: NewsResponse; teamName?: string }) {
+function HomeNewsCard({ news, teamName, currentUserId }: { news: NewsResponse; teamName?: string; currentUserId: string }) {
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
   const queryClient = useQueryClient();
 
   const canComment = news.targetType === 'M' || news.targetType === 'A';
@@ -348,6 +352,14 @@ function HomeNewsCard({ news, teamName }: { news: NewsResponse; teamName?: strin
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comments', news.newsId] });
       setCommentText('');
+    },
+  });
+
+  const updateCommentMutation = useMutation({
+    mutationFn: ({ cmtId, cmtContent }: { cmtId: number, cmtContent: string }) => api.put(`/api/news/comments/${cmtId}`, { cmtContent }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments', news.newsId] });
+      setEditingCommentId(null);
     },
   });
 
@@ -398,7 +410,7 @@ function HomeNewsCard({ news, teamName }: { news: NewsResponse; teamName?: strin
               <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              댓글 {showComments && comments.length > 0 ? `(${comments.length})` : ''}
+              {showComments ? '댓글 접어두기' : '댓글'}
             </button>
           </div>
           {showComments && (
@@ -410,27 +422,51 @@ function HomeNewsCard({ news, teamName }: { news: NewsResponse; teamName?: strin
                   {comments.length === 0 && (
                     <p className="text-[12px] text-zinc-400">첫 댓글을 남겨보세요.</p>
                   )}
-                  {comments.map((cmt) => (
+                  {comments.map((cmt) => {
+                    const isMyComment = cmt.memId === currentUserId;
+                    return (
                     <div key={cmt.cmtId} className="flex items-start justify-between gap-2">
                       <div className="flex items-start gap-2 flex-1 min-w-0">
-                        <div className="w-6 h-6 rounded-full bg-zinc-200 shrink-0 flex items-center justify-center text-[10px] text-zinc-500 font-medium">
-                          {cmt.memId?.slice(0, 1) || '?'}
+                        <div className="w-6 h-6 rounded-full bg-zinc-200 shrink-0 flex items-center justify-center text-[10px] text-zinc-500 font-medium overflow-hidden">
+                          {cmt.userImg && cmt.userImg !== 'default' ? (
+                            <img src={cmt.userImg} alt="Profile" className="w-full h-full object-cover" />
+                          ) : (
+                            (cmt.memNic || cmt.memId)?.slice(0, 1) || '?'
+                          )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[12px] text-zinc-700 leading-snug">{cmt.cmtContent}</p>
-                          <p className="text-[10px] text-zinc-400 mt-0.5">{cmt.cmtRegDtm?.slice(0, 16)}</p>
-                        </div>
+                        {editingCommentId === cmt.cmtId ? (
+                          <div className="flex-1 min-w-0 flex gap-2">
+                            <input
+                              value={editCommentText}
+                              onChange={(e) => setEditCommentText(e.target.value)}
+                              className="flex-1 border border-zinc-200 rounded px-2 py-1 text-[12px] outline-none focus:border-[#3B3EFF]"
+                            />
+                            <button onClick={() => updateCommentMutation.mutate({ cmtId: cmt.cmtId, cmtContent: editCommentText })} className="text-[11px] font-semibold text-[#3B3EFF] shrink-0">저장</button>
+                            <button onClick={() => setEditingCommentId(null)} className="text-[11px] text-zinc-400 shrink-0">취소</button>
+                          </div>
+                        ) : (
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-semibold text-zinc-800 mb-0.5">{cmt.memNic || cmt.memId}</p>
+                            <p className="text-[12px] text-zinc-700 leading-snug">{cmt.cmtContent}</p>
+                            <p className="text-[10px] text-zinc-400 mt-0.5">{cmt.cmtRegDtm?.slice(0, 16)}</p>
+                          </div>
+                        )}
                       </div>
-                      <button
-                        onClick={() => deleteCommentMutation.mutate(cmt.cmtId)}
-                        className="shrink-0 text-zinc-300 hover:text-red-400 transition-colors pt-0.5"
-                      >
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
+                      {isMyComment && editingCommentId !== cmt.cmtId && (
+                        <div className="shrink-0 flex items-center gap-2 pt-0.5">
+                          <button onClick={() => { setEditingCommentId(cmt.cmtId); setEditCommentText(cmt.cmtContent); }} className="text-[11px] text-zinc-400 hover:text-[#3B3EFF] transition-colors">
+                            수정
+                          </button>
+                          <button
+                            onClick={() => deleteCommentMutation.mutate(cmt.cmtId)}
+                            className="text-[11px] text-zinc-400 hover:text-red-400 transition-colors"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  ))}
+                  )})}
                 </>
               )}
               <div className="flex gap-2">
@@ -572,14 +608,17 @@ export default function MainPage() {
                 </Link>
                 {myTeams && myTeams.map((group, i) => (
                   <Link key={group.teamId} href={`/${group.teamId}/home`}>
-                    <div className="aspect-square rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
+                    <div className="aspect-square rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity relative">
+                      {group.teamImg && group.teamImg !== 'default' && (
+                        <img src={group.teamImg} alt={group.teamName} className="absolute inset-0 w-full h-full object-cover" />
+                      )}
                       <div
-                        className="w-full h-full flex items-end p-2"
-                        style={{ backgroundColor: GROUP_COLORS[i % GROUP_COLORS.length] }}
+                        className="absolute inset-0 w-full h-full flex items-end p-2"
+                        style={{ backgroundColor: group.teamImg && group.teamImg !== 'default' ? 'rgba(0,0,0,0.4)' : GROUP_COLORS[i % GROUP_COLORS.length] }}
                       >
-                        <div className="w-full">
-                          <p className="text-[11px] font-semibold text-zinc-800 leading-tight truncate">{group.teamName}</p>
-                          <p className="text-[10px] text-zinc-500">참여 인원 {group.currentMember}명</p>
+                        <div className="w-full relative z-10">
+                          <p className={`text-[11px] font-semibold leading-tight truncate ${group.teamImg && group.teamImg !== 'default' ? 'text-white' : 'text-zinc-800'}`}>{group.teamName}</p>
+                          <p className={`text-[10px] ${group.teamImg && group.teamImg !== 'default' ? 'text-zinc-200' : 'text-zinc-500'}`}>참여 인원 {group.currentMember}명</p>
                         </div>
                       </div>
                     </div>
@@ -597,13 +636,16 @@ export default function MainPage() {
               <div className="grid grid-cols-3 gap-2">
                 {waitTeams && waitTeams.map((group, i) => (
                   <div key={group.teamId} className="aspect-square rounded-xl overflow-hidden opacity-60 relative">
+                    {group.teamImg && group.teamImg !== 'default' && (
+                      <img src={group.teamImg} alt={group.teamName} className="absolute inset-0 w-full h-full object-cover" />
+                    )}
                     <div
-                      className="w-full h-full flex items-end p-2"
-                      style={{ backgroundColor: GROUP_COLORS[i % GROUP_COLORS.length] }}
+                      className="absolute inset-0 w-full h-full flex items-end p-2"
+                      style={{ backgroundColor: group.teamImg && group.teamImg !== 'default' ? 'rgba(0,0,0,0.4)' : GROUP_COLORS[i % GROUP_COLORS.length] }}
                     >
-                      <div className="w-full">
-                        <p className="text-[11px] font-semibold text-zinc-800 leading-tight truncate">{group.teamName}</p>
-                        <p className="text-[10px] text-zinc-500">승인 대기 중</p>
+                      <div className="w-full relative z-10">
+                        <p className={`text-[11px] font-semibold leading-tight truncate ${group.teamImg && group.teamImg !== 'default' ? 'text-white' : 'text-zinc-800'}`}>{group.teamName}</p>
+                        <p className={`text-[10px] ${group.teamImg && group.teamImg !== 'default' ? 'text-zinc-200' : 'text-zinc-500'}`}>승인 대기 중</p>
                       </div>
                     </div>
                   </div>
@@ -623,7 +665,7 @@ export default function MainPage() {
                   <p className="text-[13px] text-zinc-400 py-2">최근 소식이 없습니다.</p>
                 )}
                 {news.slice(0, newsLimit).map((item) => (
-                  <HomeNewsCard key={item.newsId} news={item} teamName={teamNameMap[item.teamId]} />
+                  <HomeNewsCard key={item.newsId} news={item} teamName={teamNameMap[item.teamId]} currentUserId={id} />
                 ))}
               </div>
               {news.length > newsLimit && (

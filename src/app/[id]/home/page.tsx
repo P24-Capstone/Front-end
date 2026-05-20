@@ -21,6 +21,14 @@ interface CommentResponse {
   cmtModDtm: string;
   newsId: number;
   memId: string;
+  memNic?: string;
+  userImg?: string;
+}
+
+interface DashboardSummaryResponse {
+  averageActivityHours: number;
+  missionRank: number;
+  weeklyProgressPercent: number;
 }
 
 const TARGET_BG: Record<string, string> = {
@@ -83,9 +91,11 @@ function getNewsLink(item: NewsResponse): string | null {
   }
 }
 
-function HomeNewsCard({ news }: { news: NewsResponse }) {
+function HomeNewsCard({ news, currentUserId }: { news: NewsResponse; currentUserId: string }) {
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
   const queryClient = useQueryClient();
 
   const canComment = news.targetType === 'M' || news.targetType === 'A';
@@ -107,6 +117,15 @@ function HomeNewsCard({ news }: { news: NewsResponse }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comments', news.newsId] });
       setCommentText('');
+    },
+  });
+
+  const updateCommentMutation = useMutation({
+    mutationFn: ({ cmtId, cmtContent }: { cmtId: number; cmtContent: string }) =>
+      api.put(`/api/news/comments/${cmtId}`, { cmtContent }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments', news.newsId] });
+      setEditingCommentId(null);
     },
   });
 
@@ -150,7 +169,7 @@ function HomeNewsCard({ news }: { news: NewsResponse }) {
               <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              댓글 {showComments && comments.length > 0 ? `(${comments.length})` : ''}
+              {showComments ? '댓글 접어두기' : '댓글'}
             </button>
           </div>
           {showComments && (
@@ -162,27 +181,62 @@ function HomeNewsCard({ news }: { news: NewsResponse }) {
                   {comments.length === 0 && (
                     <p className="text-[12px] text-zinc-400">첫 댓글을 남겨보세요.</p>
                   )}
-                  {comments.map((cmt) => (
-                    <div key={cmt.cmtId} className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2 flex-1 min-w-0">
-                        <div className="w-6 h-6 rounded-full bg-zinc-200 shrink-0 flex items-center justify-center text-[10px] text-zinc-500 font-medium">
-                          {cmt.memId?.slice(0, 1) || '?'}
+                  {comments.map((cmt) => {
+                    const isMyComment = cmt.memId === currentUserId;
+                    return (
+                      <div key={cmt.cmtId} className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                          <div className="w-6 h-6 rounded-full bg-zinc-200 shrink-0 flex items-center justify-center text-[10px] text-zinc-500 font-medium overflow-hidden">
+                            {cmt.userImg && cmt.userImg !== 'default' ? (
+                              <img src={cmt.userImg} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                              (cmt.memNic || cmt.memId)?.slice(0, 1) || '?'
+                            )}
+                          </div>
+                          {editingCommentId === cmt.cmtId ? (
+                            <div className="flex-1 min-w-0 flex gap-2">
+                              <input
+                                value={editCommentText}
+                                onChange={(e) => setEditCommentText(e.target.value)}
+                                className="flex-1 border border-zinc-200 rounded px-2 py-1 text-[12px] outline-none focus:border-[#3B3EFF]"
+                              />
+                              <button
+                                onClick={() => updateCommentMutation.mutate({ cmtId: cmt.cmtId, cmtContent: editCommentText })}
+                                className="text-[11px] font-semibold text-[#3B3EFF] shrink-0"
+                              >
+                                저장
+                              </button>
+                              <button onClick={() => setEditingCommentId(null)} className="text-[11px] text-zinc-400 shrink-0">
+                                취소
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-semibold text-zinc-800 mb-0.5">{cmt.memNic || cmt.memId}</p>
+                              <p className="text-[12px] text-zinc-700 leading-snug">{cmt.cmtContent}</p>
+                              <p className="text-[10px] text-zinc-400 mt-0.5">{cmt.cmtRegDtm?.slice(0, 16)}</p>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[12px] text-zinc-700 leading-snug">{cmt.cmtContent}</p>
-                          <p className="text-[10px] text-zinc-400 mt-0.5">{cmt.cmtRegDtm?.slice(0, 16)}</p>
-                        </div>
+                        {isMyComment && editingCommentId !== cmt.cmtId && (
+                          <div className="shrink-0 flex items-center gap-2 pt-0.5">
+                            <button
+                              onClick={() => { setEditingCommentId(cmt.cmtId); setEditCommentText(cmt.cmtContent); }}
+                              className="text-[11px] text-zinc-400 hover:text-[#3B3EFF] transition-colors"
+                            >
+                              수정
+                            </button>
+                            <button
+                              onClick={() => deleteCommentMutation.mutate(cmt.cmtId)}
+                              className="text-[11px] text-zinc-400 hover:text-red-400 transition-colors"
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <button
-                        onClick={() => deleteCommentMutation.mutate(cmt.cmtId)}
-                        className="shrink-0 text-zinc-300 hover:text-red-400 transition-colors pt-0.5"
-                      >
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </>
               )}
               <div className="flex gap-2">
@@ -246,15 +300,36 @@ function DonutChart({ pct, label, color }: { pct: number; label: string; color: 
 
 export default function GroupHomePage() {
   const { id } = useParams<{ id: string }>();
-  const [newsLimit, setNewsLimit] = useState(5);
-  const { data: news = [], isLoading } = useQuery({
+
+  const { data: user } = useQuery({
+    queryKey: ['me'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/users/me');
+      return data.data;
+    },
+  });
+  const currentUserId = user?.userId || '';
+
+  const { data: dashboard, isLoading: dashLoading } = useQuery({
+    queryKey: ['dashboardSummary'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/dashboard/summary');
+      return data.data as DashboardSummaryResponse;
+    },
+  });
+
+  const { data: news = [], isLoading: newsLoading } = useQuery({
     queryKey: ['news', id],
     queryFn: async () => {
       const { data } = await api.get(`/api/news?teamId=${id}`);
-      return data.data as NewsResponse[];
+      return (data.data as NewsResponse[]).slice(0, 5);
     },
     enabled: !!id,
   });
+
+  const activityHours = dashboard?.averageActivityHours ?? 0;
+  const missionRank = dashboard?.missionRank ?? 0;
+  const weeklyPct = dashboard?.weeklyProgressPercent ?? 0;
 
   return (
     <div className="space-y-6 pt-4">
@@ -262,65 +337,54 @@ export default function GroupHomePage() {
       <section>
         <h2 className="text-[15px] font-bold mb-3">최근 소식</h2>
         <div className="space-y-2">
-          {isLoading && (
+          {newsLoading && (
             <div className="p-3 rounded-xl bg-zinc-50 animate-pulse h-14" />
           )}
-          {!isLoading && news.length === 0 && (
+          {!newsLoading && news.length === 0 && (
             <p className="text-[13px] text-zinc-400 py-2">최근 소식이 없습니다.</p>
           )}
-          {news.slice(0, newsLimit).map((item) => (
-            <HomeNewsCard key={item.newsId} news={item} />
+          {news.map((item) => (
+            <HomeNewsCard key={item.newsId} news={item} currentUserId={currentUserId} />
           ))}
         </div>
-        {news.length > newsLimit && (
-                <button
-                  onClick={() => setNewsLimit((prev) => prev + 5)}
-                  className="w-full mt-2 py-2 text-[13px] text-zinc-500 hover:text-zinc-800 font-medium transition-colors"
-                >
-                  더보기
-                </button>
-              )}
       </section>
 
       {/* 나의 대시보드 */}
       <section>
         <h2 className="text-[15px] font-bold mb-3">나의 대시보드</h2>
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <div className="bg-zinc-50 rounded-2xl p-4 flex flex-col items-center">
-            <p className="text-[11px] text-zinc-500 mb-3 text-center">평균 활동 시간</p>
-            <div className="relative">
-              <CircleProgress pct={100} />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[18px] font-bold leading-none">2.54</span>
-                <span className="text-[10px] text-zinc-400 mt-0.5">시간</span>
+        {dashLoading ? (
+          <div className="space-y-3">
+            <div className="bg-zinc-50 rounded-2xl h-32 animate-pulse" />
+            <div className="bg-zinc-50 rounded-2xl h-32 animate-pulse" />
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="bg-zinc-50 rounded-2xl p-4 flex flex-col items-center">
+                <p className="text-[11px] text-zinc-500 mb-3 text-center">평균 활동 시간</p>
+                <div className="relative">
+                  <CircleProgress pct={Math.min(Math.round((activityHours / 8) * 100), 100)} />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-[18px] font-bold leading-none">{activityHours.toFixed(1)}</span>
+                    <span className="text-[10px] text-zinc-400 mt-0.5">시간</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-zinc-400 mt-2">{Math.min(Math.round((activityHours / 8) * 100), 100)}%</p>
+              </div>
+              <div className="bg-zinc-50 rounded-2xl p-4 flex flex-col justify-center items-center gap-2">
+                <p className="text-[11px] text-zinc-500">나의 미션 순위</p>
+                <p className="text-[28px] font-bold text-zinc-900 leading-none">{missionRank}위</p>
+                <p className="text-[11px] text-zinc-400">이번 주 기준</p>
               </div>
             </div>
-            <p className="text-[11px] text-zinc-400 mt-2">100%</p>
-          </div>
-          <div className="bg-zinc-50 rounded-2xl p-4">
-            <p className="text-[11px] text-zinc-500 mb-1">나의 MBP MOP (Top 5)</p>
-            <p className="text-[13px] font-bold mb-3">나의 순위: 4위 ⭐</p>
-            <div className="space-y-2">
-              {[{ score: 98, emoji: '🥇' }, { score: 85, emoji: '🥈' }, { score: 72, emoji: '🥉' }].map((r, i) => (
-                <div key={i} className="flex items-center gap-1.5">
-                  <span className="text-[13px] w-5">{r.emoji}</span>
-                  <div className="flex-1 h-1.5 bg-zinc-200 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${r.score}%`, backgroundColor: '#374151' }} />
-                  </div>
-                  <span className="text-[10px] text-zinc-400 w-6 text-right">{r.score}</span>
-                </div>
-              ))}
+            <div className="bg-zinc-50 rounded-2xl p-4">
+              <p className="text-[13px] font-semibold mb-4">개인별 주차 미션 성취</p>
+              <div className="flex justify-around items-center">
+                <DonutChart pct={weeklyPct} label="나의달성" color="#111827" />
+              </div>
             </div>
-          </div>
-        </div>
-        <div className="bg-zinc-50 rounded-2xl p-4">
-          <p className="text-[13px] font-semibold mb-4">개인별 주차 미션 성취</p>
-          <div className="flex justify-around items-center">
-            <DonutChart pct={25} label="모임달성" color="#f97316" />
-            <div className="w-px h-16 bg-zinc-200" />
-            <DonutChart pct={45} label="나의달성" color="#111827" />
-          </div>
-        </div>
+          </>
+        )}
       </section>
     </div>
   );

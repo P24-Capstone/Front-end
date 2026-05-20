@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -23,6 +23,8 @@ interface VoteResponse {
   voteRegDtm: string;
   teamId: string;
   options: VoteOption[];
+  myVoted: boolean;
+  myOptSns: number[];
 }
 
 function VoteResultsView({ vote }: { vote: VoteResponse }) {
@@ -63,7 +65,7 @@ function VoteResultsView({ vote }: { vote: VoteResponse }) {
   );
 }
 
-export default function VoteDetailPage() {
+function VoteDetailContent() {
   const { id, voteId } = useParams<{ id: string; voteId: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -81,6 +83,13 @@ export default function VoteDetailPage() {
     },
     enabled: !!voteId,
   });
+
+  // 이미 투표했으면 기존 선택 항목으로 초기화
+  useEffect(() => {
+    if (vote?.myVoted && vote.myOptSns?.length > 0) {
+      setSelectedOptSns(vote.myOptSns);
+    }
+  }, [vote?.myVoted, vote?.myOptSns]);
 
   const voteMutation = useMutation({
     mutationFn: (optSnList: number[]) =>
@@ -119,7 +128,7 @@ export default function VoteDetailPage() {
     );
   }
 
-  /* 결과 보기 */
+  /* 결과 보기 (종료된 투표) */
   if (mode === 'results') {
     return (
       <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 py-8 flex flex-col justify-center">
@@ -140,15 +149,27 @@ export default function VoteDetailPage() {
     );
   }
 
-  /* 투표하기 */
+  /* 투표하기 / 수정하기 */
+  const isEditMode = vote.myVoted && !submitted;
+
   return (
     <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 flex flex-col justify-center py-8">
       <div className="bg-white rounded-2xl p-6 flex flex-col gap-6">
-        <h1 className="text-[20px] font-bold text-zinc-900">{vote.voteTitle}</h1>
-        {vote.voteContent && (
-          <p className="text-[14px] text-zinc-500 leading-relaxed -mt-2">{vote.voteContent}</p>
-        )}
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-[20px] font-bold text-zinc-900 flex-1">{vote.voteTitle}</h1>
+            {isEditMode && (
+              <span className="shrink-0 text-[11px] font-semibold text-[#3B3EFF] bg-[#EBEBFF] px-2 py-0.5 rounded-full">참여 완료</span>
+            )}
+          </div>
+          {vote.voteContent && (
+            <p className="text-[14px] text-zinc-500 leading-relaxed">{vote.voteContent}</p>
+          )}
+        </div>
 
+        {isEditMode && (
+          <p className="text-[12px] text-zinc-400 -mt-3">선택을 변경하여 다시 제출할 수 있습니다.</p>
+        )}
         {vote.voteMulti === 'Y' && !submitted && (
           <p className="text-[12px] text-zinc-400 -mt-3">여러 항목을 선택할 수 있습니다.</p>
         )}
@@ -156,11 +177,12 @@ export default function VoteDetailPage() {
         <div className="flex flex-col gap-4">
           {vote.options.map((option) => {
             const isSelected = selectedOptSns.includes(option.optSn);
+            const isPrevSelection = vote.myVoted && vote.myOptSns.includes(option.optSn);
             return (
               <button
                 key={option.optSn}
                 onClick={() => !submitted && toggle(option.optSn)}
-                className="flex items-center gap-3"
+                className="flex items-center gap-3 text-left"
               >
                 <div className="w-5 h-5 flex items-center justify-center shrink-0">
                   {submitted ? (
@@ -183,26 +205,29 @@ export default function VoteDetailPage() {
                     </div>
                   )}
                 </div>
-                <span className={`text-[14px] font-medium transition-colors ${submitted ? (isSelected ? 'text-[#3B3EFF]' : 'text-zinc-400') : 'text-zinc-900'}`}>
+                <span className={`flex-1 text-[14px] font-medium transition-colors ${submitted ? (isSelected ? 'text-[#3B3EFF]' : 'text-zinc-400') : 'text-zinc-900'}`}>
                   {option.optContent}
                 </span>
+                {isEditMode && isPrevSelection && !isSelected && (
+                  <span className="text-[10px] text-zinc-400 shrink-0">이전 선택</span>
+                )}
               </button>
             );
           })}
         </div>
 
         {voteMutation.isError && (
-          <p className="text-[12px] text-red-500">투표 제출에 실패했습니다. 다시 시도해주세요.</p>
+          <p className="text-[12px] text-red-500">제출에 실패했습니다. 다시 시도해주세요.</p>
         )}
 
         <div className="flex gap-3 mt-2">
           {submitted ? (
             <>
               <button
-                onClick={() => { setSubmitted(false); setSelectedOptSns([]); }}
+                onClick={() => { setSubmitted(false); setSelectedOptSns(vote.myOptSns ?? []); }}
                 className="flex-1 border-2 border-[#3B3EFF] bg-white text-[#3B3EFF] text-[14px] font-semibold py-3.5 rounded-xl"
               >
-                다시 투표하기
+                다시 수정하기
               </button>
               <button
                 onClick={() => router.back()}
@@ -217,11 +242,23 @@ export default function VoteDetailPage() {
               onClick={() => voteMutation.mutate(selectedOptSns)}
               className={`flex-1 text-[14px] font-semibold py-3.5 rounded-xl transition-colors ${selectedOptSns.length === 0 || voteMutation.isPending ? 'bg-zinc-200 text-zinc-400' : 'bg-[#3B3EFF] text-white'}`}
             >
-              {voteMutation.isPending ? '제출 중...' : '투표하기'}
+              {voteMutation.isPending ? '제출 중...' : isEditMode ? '수정하기' : '투표하기'}
             </button>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VoteDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 flex items-center justify-center">
+        <p className="text-[14px] text-zinc-400">불러오는 중...</p>
+      </div>
+    }>
+      <VoteDetailContent />
+    </Suspense>
   );
 }

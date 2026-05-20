@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -8,9 +9,21 @@ import api from '@/lib/api';
 interface NewsResponse {
   newsId: number;
   targetType: string;
-  targetId: number;
+  targetId: number | null;
   newsContent: string;
   teamId: string;
+}
+
+function getNewsLink(item: NewsResponse): string | null {
+  if (item.targetId == null) return null;
+  const base = `/${item.teamId}`;
+  switch (item.targetType) {
+    case 'N': return `${base}/notices/${item.targetId}`;
+    case 'E': return `${base}/events/${item.targetId}`;
+    case 'V': return `${base}/votes/${item.targetId}`;
+    case 'I': return `${base}/minutes/${item.targetId}`;
+    default: return null;
+  }
 }
 
 interface CommentResponse {
@@ -95,31 +108,52 @@ function NewsCard({ news }: { news: NewsResponse }) {
   });
 
   const bgCls = TARGET_BG[news.targetType] ?? 'bg-zinc-100';
+  const link = getNewsLink(news);
+  const canComment = news.targetType === 'M' || news.targetType === 'A';
+
+  const header = (
+    <div className="px-4 py-3 flex items-start gap-3">
+      <div className={`w-9 h-9 rounded-full ${bgCls} shrink-0 flex items-center justify-center mt-0.5`}>
+        <NewsIcon type={news.targetType} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] text-zinc-800 leading-snug">{news.newsContent}</p>
+      </div>
+      {link && (
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#a1a1aa" strokeWidth={2} className="shrink-0 mt-0.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      )}
+    </div>
+  );
+
+  if (link) {
+    return (
+      <Link href={link} className="block bg-white rounded-xl overflow-hidden hover:bg-zinc-50 transition-colors">
+        {header}
+      </Link>
+    );
+  }
 
   return (
     <div className="bg-white rounded-xl overflow-hidden">
-      <div className="px-4 py-3 flex items-start gap-3">
-        <div className={`w-9 h-9 rounded-full ${bgCls} shrink-0 flex items-center justify-center mt-0.5`}>
-          <NewsIcon type={news.targetType} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[13px] text-zinc-800 leading-snug">{news.newsContent}</p>
-        </div>
-      </div>
+      {header}
 
-      <div className="px-4 pb-3 flex items-center gap-3 border-t border-zinc-50">
-        <button
-          onClick={() => setShowComments(!showComments)}
-          className="flex items-center gap-1 text-[12px] text-zinc-400 mt-2"
-        >
-          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
-          댓글 {showComments && comments.length > 0 ? `(${comments.length})` : ''}
-        </button>
-      </div>
+      {canComment && (
+        <div className="px-4 pb-3 flex items-center gap-3 border-t border-zinc-50">
+          <button
+            onClick={() => setShowComments(!showComments)}
+            className="flex items-center gap-1 text-[12px] text-zinc-400 mt-2"
+          >
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            댓글 {showComments && comments.length > 0 ? `(${comments.length})` : ''}
+          </button>
+        </div>
+      )}
 
-      {showComments && (
+      {canComment && showComments && (
         <div className="border-t border-zinc-100 px-4 py-3 flex flex-col gap-3">
           {loadingComments ? (
             <p className="text-[12px] text-zinc-400">불러오는 중...</p>

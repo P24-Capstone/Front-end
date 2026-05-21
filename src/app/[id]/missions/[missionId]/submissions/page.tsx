@@ -6,6 +6,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useHeaderSlotStore } from '@/store/headerSlot';
 import api from '@/lib/api';
 
+interface MemberResponse {
+  memRole: string;
+  memState: string;
+}
+
 const SCOPE_COLOR: Record<string, string> = { 공통: '#FF9E6A', 개인: '#E5638C' };
 const AUTH_COLOR: Record<string, string> = { 'AI인증': '#3B3EFF', '수동인증': '#31DBD5' };
 
@@ -43,6 +48,23 @@ export default function SubmissionsPage() {
   const subtitle = searchParams.get('subtitle') ?? '';
   const isAI = authType === 'AI인증';
 
+  const { data: myMembership, isLoading: memberLoading } = useQuery<MemberResponse>({
+    queryKey: ['members', 'me', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/members/me?teamId=${id}`);
+      return data.data as MemberResponse;
+    },
+    enabled: !!id,
+  });
+
+  const isLeader = myMembership?.memRole === 'L' && myMembership?.memState === 'A';
+
+  useEffect(() => {
+    if (!memberLoading && myMembership && !isLeader) {
+      router.replace(`/${id}/missions/${missionId}/pending?${searchParams.toString()}`);
+    }
+  }, [memberLoading, myMembership, isLeader, router, id, missionId, searchParams]);
+
   useEffect(() => {
     setPageHeader({ title: '제출 현황', hideHamburger: true });
     return () => setPageHeader(null);
@@ -58,6 +80,16 @@ export default function SubmissionsPage() {
 
   const pendingCount = submissions.filter((s) => resolveStatus(s) === 'pending').length;
   const completedCount = submissions.filter((s) => resolveStatus(s) === 'completed').length;
+
+  if (memberLoading || !myMembership) {
+    return (
+      <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex items-center justify-center">
+        <p className="text-[13px] text-zinc-400">불러오는 중...</p>
+      </div>
+    );
+  }
+
+  if (!isLeader) return null;
 
   return (
     <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-4">

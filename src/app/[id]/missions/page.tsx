@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 
@@ -22,6 +22,14 @@ interface MemberResponse {
 }
 
 const INPUT_CLS = 'w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-[14px] text-zinc-800 placeholder:text-zinc-300 outline-none focus:border-[#3B3EFF] transition-colors bg-white';
+
+function getMissionHref(mission: MissionResponse, isLeader: boolean, id: string): string {
+  const authType = mission.missionType === 'I' ? 'AI인증' : '수동인증';
+  const subtitle = `${mission.missionStartDtm?.slice(0, 10)} ~ ${mission.missionEndDtm?.slice(0, 10)}`;
+  const params = new URLSearchParams({ authType, scope: '공통', title: mission.missionTitle, subtitle });
+  const base = `/${id}/missions/${mission.missionId}`;
+  return isLeader ? `${base}/submissions?${params}` : `${base}/pending?${params}`;
+}
 
 function getDaysLeft(endDtm: string): number | null {
   const diff = Math.ceil((new Date(endDtm).getTime() - Date.now()) / 86400000);
@@ -151,6 +159,7 @@ function CreateModal({
 
 export default function MissionsPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [tab, setTab] = useState<'전체' | '진행중' | '종료'>('전체');
@@ -226,7 +235,11 @@ export default function MissionsPage() {
             const isActive = daysLeft !== null;
 
             return (
-              <div key={mission.missionId} className="bg-white rounded-xl px-4 py-4">
+              <div
+                key={mission.missionId}
+                onClick={() => router.push(getMissionHref(mission, isLeader, id))}
+                className="bg-white rounded-xl px-4 py-4 cursor-pointer active:scale-[0.99] transition-transform"
+              >
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
@@ -241,7 +254,7 @@ export default function MissionsPage() {
                   </div>
                   {isLeader && (
                     <button
-                      onClick={() => deleteMutation.mutate(mission.missionId)}
+                      onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(mission.missionId); }}
                       disabled={deleteMutation.isPending}
                       className="shrink-0 w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 hover:bg-red-50 hover:text-red-400 transition-colors"
                     >
@@ -254,6 +267,9 @@ export default function MissionsPage() {
                 <p className="text-[13px] text-zinc-500 leading-relaxed mb-3">{mission.missionContent}</p>
                 <div className="flex items-center justify-between text-[11px] text-zinc-400">
                   <span>{mission.missionStartDtm?.slice(0, 10)} ~ {mission.missionEndDtm?.slice(0, 10)}</span>
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#d4d4d8" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
+                  </svg>
                 </div>
               </div>
             );

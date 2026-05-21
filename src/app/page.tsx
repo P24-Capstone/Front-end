@@ -89,6 +89,13 @@ export default function LandingPage() {
                 우리는 목표 달성에만 집중하는<br />
                 독특한 모임 공간
               </h1>
+              <Link
+                href="/main"
+                className="inline-block px-5 py-2 text-[13px] font-semibold text-white rounded-full transition-opacity hover:opacity-90"
+                style={{ backgroundColor: '#3B3EFF' }}
+              >
+                알아보기
+              </Link>
             </div>
           </div>
         </section>

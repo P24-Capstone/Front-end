@@ -1,4 +1,3 @@
-//랜딩 페이지
 import Link from 'next/link';
 
 const FEATURES = [
@@ -44,86 +43,78 @@ const FEATURES = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
-        <span className="text-[17px] font-bold tracking-tight">CrewWise</span>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/auth/signup"
-            className="text-[13px] text-zinc-600 px-3 py-1.5 rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors"
-          >
-            회원가입
-          </Link>
-          <Link
-            href="/auth/login"
-            className="text-[13px] text-white px-3 py-1.5 rounded-lg bg-[#3B3EFF] hover:bg-[#7073FB] transition-colors"
-          >
-            로그인
-          </Link>
-        </div>
-      </header>
+    <div className="min-h-screen bg-white flex flex-col">
+      <div className="max-w-2xl mx-auto w-full flex flex-col flex-1 shadow-sm">
 
-      {/* Hero */}
-      <section className="relative h-[260px] overflow-hidden">
-        {/* Background layers */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(160deg, #374151 0%, #3B3EFF 45%, #111827 100%)',
-          }}
-        />
-        {/* Subtle texture overlay */}
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            background:
-              'radial-gradient(ellipse at 70% 40%, #6b7280 0%, transparent 60%), radial-gradient(ellipse at 20% 70%, #374151 0%, transparent 50%)',
-          }}
-        />
-        {/* Bottom fade */}
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" />
-
-        {/* Content */}
-        <div className="relative z-10 flex flex-col justify-between h-full p-5">
-          <p className="text-[11px] text-zinc-400">2026.06.09 서비스 오픈</p>
-          <div>
-            <h1 className="text-white text-[17px] font-bold leading-relaxed mb-5">
-              귀찮은 관리는 AI에게,<br />
-              우리는 목표 달성에만 집중하는<br />
-              독특한 모임 공간
-            </h1>
+        {/* Header */}
+        <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
+          <span className="text-[17px] font-bold tracking-tight">CrewWise</span>
+          <div className="flex items-center gap-2">
             <Link
-              href="/main"
-              className="inline-block px-5 py-2 text-[13px] font-semibold text-white rounded-full transition-opacity hover:opacity-90"
-              style={{ backgroundColor: '#3B3EFF' }}
+              href="/auth/signup"
+              className="text-[13px] text-zinc-600 px-3 py-1.5 rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors"
             >
-              알아보기
+              회원가입
+            </Link>
+            <Link
+              href="/auth/login"
+              className="text-[13px] text-white px-3 py-1.5 rounded-lg bg-[#3B3EFF] hover:bg-[#7073FB] transition-colors"
+            >
+              로그인
             </Link>
           </div>
-        </div>
-      </section>
+        </header>
 
-      {/* Feature Cards */}
-      <main className="flex-1 px-4 py-6 space-y-3">
-        {FEATURES.map((f) => (
+        {/* Hero */}
+        <section className="relative h-[260px] overflow-hidden">
           <div
-            key={f.title}
-            className="flex flex-col items-center text-center gap-3 p-5 rounded-2xl border border-zinc-100 shadow-sm"
-          >
-            <div className="mt-1">{f.icon}</div>
+            className="absolute inset-0"
+            style={{
+              background: 'linear-gradient(160deg, #374151 0%, #3B3EFF 45%, #111827 100%)',
+            }}
+          />
+          <div
+            className="absolute inset-0 opacity-20"
+            style={{
+              background:
+                'radial-gradient(ellipse at 70% 40%, #6b7280 0%, transparent 60%), radial-gradient(ellipse at 20% 70%, #374151 0%, transparent 50%)',
+            }}
+          />
+          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" />
+          <div className="relative z-10 flex flex-col justify-between h-full p-5">
+            <p className="text-[11px] text-zinc-400">2026.06.09 서비스 오픈</p>
             <div>
-              <p className="text-[15px] font-bold text-zinc-900 mb-1">{f.title}</p>
-              <p className="text-[12px] text-zinc-500 leading-relaxed">{f.desc}</p>
+              <h1 className="text-white text-[17px] font-bold leading-relaxed mb-5">
+                귀찮은 관리는 AI에게,<br />
+                우리는 목표 달성에만 집중하는<br />
+                독특한 모임 공간
+              </h1>
             </div>
           </div>
-        ))}
-      </main>
+        </section>
 
-      {/* Footer */}
-      <footer className="py-3 px-4 border-t border-zinc-100 text-center">
-        <p className="text-[11px] text-zinc-400">© 2026 CrewWise Corp. All Rights Reserved</p>
-      </footer>
+        {/* Feature Cards */}
+        <main className="flex-1 px-4 py-6 space-y-3">
+          {FEATURES.map((f) => (
+            <div
+              key={f.title}
+              className="flex flex-col items-center text-center gap-3 p-5 rounded-2xl border border-zinc-100 shadow-sm"
+            >
+              <div className="mt-1">{f.icon}</div>
+              <div>
+                <p className="text-[15px] font-bold text-zinc-900 mb-1">{f.title}</p>
+                <p className="text-[12px] text-zinc-500 leading-relaxed">{f.desc}</p>
+              </div>
+            </div>
+          ))}
+        </main>
+
+        {/* Footer */}
+        <footer className="py-3 px-4 border-t border-zinc-100 text-center">
+          <p className="text-[11px] text-zinc-400">© 2026 CrewWise Corp. All Rights Reserved</p>
+        </footer>
+
+      </div>
     </div>
   );
 }

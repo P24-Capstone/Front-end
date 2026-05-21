@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useQueries } from '@tanstack/react-query';
+import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 
 const GROUP_COLORS = ['#fde68a', '#bfdbfe', '#bbf7d0', '#fecaca', '#ddd6fe', '#fed7aa'];
@@ -19,12 +19,15 @@ interface MemberResponse {
   memRole: string;
   memState: string;
   teamId: string;
+  memBio?: string;
+  userImg?: string;
 }
 
 interface Profile {
   memId: string;
   memNic: string;
   bio: string;
+  userImg: string | null;
   teamId: string;
   teamName: string;
   currentMember: number;
@@ -44,9 +47,34 @@ function XButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function EditModal({ profile, onClose }: { profile: Profile; onClose: () => void }) {
+function EditModal({ profile, onClose, onSaved }: { profile: Profile; onClose: () => void; onSaved: (memNic: string, memBio: string) => void }) {
   const [nick, setNick] = useState(profile.memNic);
-  const [bio, setBio] = useState('');
+  const [bio, setBio] = useState(profile.bio);
+  const [preview, setPreview] = useState<string | null>(profile.userImg ?? null);
+  const [pendingImgKey, setPendingImgKey] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { data: uploadRes } = await api.post('/api/files/upload', formData);
+      const imgFileKey = uploadRes.data as string;
+      setPreview(imgFileKey);
+      setPendingImgKey(imgFileKey);
+    } catch {
+      alert('이미지 업로드에 실패했습니다.');
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/50">
@@ -56,14 +84,23 @@ function EditModal({ profile, onClose }: { profile: Profile; onClose: () => void
 
         <div className="flex items-center gap-4 mb-5">
           <div
-            className="w-16 h-16 rounded-full flex items-center justify-center text-[22px] font-bold text-zinc-700 shrink-0"
+            className="w-16 h-16 rounded-full flex items-center justify-center text-[22px] font-bold text-zinc-700 shrink-0 overflow-hidden"
             style={{ backgroundColor: GROUP_COLORS[profile.colorIdx] }}
           >
-            {nick[0] || '?'}
+            {preview ? (
+              <img src={preview} alt="preview" className="w-full h-full object-cover" />
+            ) : (
+              nick[0] || '?'
+            )}
           </div>
-          <button className="flex-1 h-10 border border-zinc-300 rounded-xl text-[13px] font-medium text-zinc-700">
-            이미지 업로드
+          <button
+            onClick={() => !uploading && fileRef.current?.click()}
+            disabled={uploading}
+            className="flex-1 h-10 border border-zinc-300 rounded-xl text-[13px] font-medium text-zinc-700 disabled:opacity-50"
+          >
+            {uploading ? '업로드 중...' : '이미지 업로드'}
           </button>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
         </div>
 
         <div className="flex items-center gap-3 mb-3">
@@ -88,10 +125,23 @@ function EditModal({ profile, onClose }: { profile: Profile; onClose: () => void
         </div>
 
         <button
-          onClick={onClose}
-          className="w-full bg-[#3B3EFF] text-white text-[14px] font-semibold rounded-xl py-2.5"
+          disabled={saving || uploading}
+          onClick={async () => {
+            setSaving(true);
+            try {
+              await api.patch(`/api/members/${profile.memId}`, { memNic: nick, memBio: bio, ...(pendingImgKey && { memImgKey: pendingImgKey }) });
+              queryClient.invalidateQueries({ queryKey: ['memberMe', profile.teamId] });
+              onSaved(nick, bio);
+              onClose();
+            } catch {
+              alert('저장에 실패했습니다.');
+            } finally {
+              setSaving(false);
+            }
+          }}
+          className="w-full bg-[#3B3EFF] text-white text-[14px] font-semibold rounded-xl py-2.5 disabled:opacity-60"
         >
-          완료
+          {saving ? '저장 중...' : '완료'}
         </button>
       </div>
     </div>
@@ -154,7 +204,8 @@ export default function ProfilesPage() {
       return {
         memId: mem.memId,
         memNic: mem.memNic,
-        bio: '',
+        bio: mem.memBio ?? '',
+        userImg: mem.userImg ?? null,
         teamId: team.teamId,
         teamName: team.teamName,
         currentMember: team.currentMember,
@@ -165,7 +216,7 @@ export default function ProfilesPage() {
 
   return (
     <div className="w-full h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm overflow-hidden">
-      {editTarget && <EditModal profile={editTarget} onClose={() => setEditTarget(null)} />}
+      {editTarget && <EditModal profile={editTarget} onClose={() => setEditTarget(null)} onSaved={(memNic, memBio) => setEditTarget((prev) => prev ? { ...prev, memNic, bio: memBio } : null)} />}
       {teamsTarget && <UsedTeamsModal profile={teamsTarget} onClose={() => setTeamsTarget(null)} />}
 
       <header className="flex items-center px-4 h-[52px] shrink-0 border-b border-zinc-100">
@@ -184,10 +235,14 @@ export default function ProfilesPage() {
           profiles.map((profile) => (
             <div key={profile.memId} className="flex items-center gap-3 px-4 py-3 border-b border-zinc-100">
               <div
-                className="w-12 h-12 rounded-full shrink-0 flex items-center justify-center text-[18px] font-bold text-zinc-700"
+                className="w-12 h-12 rounded-full shrink-0 flex items-center justify-center text-[18px] font-bold text-zinc-700 overflow-hidden"
                 style={{ backgroundColor: GROUP_COLORS[profile.colorIdx] }}
               >
-                {profile.memNic[0]}
+                {profile.userImg ? (
+                  <img src={profile.userImg} alt="profile" className="w-full h-full object-cover" />
+                ) : (
+                  profile.memNic[0]
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[14px] font-semibold text-zinc-900 truncate">{profile.memNic}</p>

@@ -43,18 +43,30 @@ export default function MyPageEditPage() {
   const [name, setName] = useState('');
   const [tel, setTel] = useState('');
 
+  const formatTel = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length < 4) return digits;
+    if (digits.length < 8) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  };
+
   const initialized = useRef(false);
   if (user && !initialized.current) {
-    setTel(user.userTel ?? '');
+    setName(user.userName ?? '');
+    setTel(formatTel(user.userTel ?? ''));
     initialized.current = true;
   }
 
   const { mutate: save, isPending } = useMutation({
     mutationFn: () =>
-      api.patch('/api/auth/me', { userName: name, userTel: tel }),
+      api.patch('/api/users/me', { userName: name, userTel: tel.replace(/-/g, '') }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['me'] });
       router.push('/mypage');
+    },
+    onError: (err: unknown) => {
+      console.error('프로필 저장 실패', err);
+      alert('저장에 실패했습니다. 다시 시도해 주세요.');
     },
   });
 
@@ -137,7 +149,7 @@ export default function MyPageEditPage() {
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="홍길동"
+                placeholder=""
                 className="flex-1 text-[13px] text-zinc-800 border-b border-zinc-200 outline-none py-0.5 bg-transparent"
               />
             </div>
@@ -146,7 +158,7 @@ export default function MyPageEditPage() {
               <span className="text-[13px] text-zinc-400 w-16 shrink-0">전화번호</span>
               <input
                 value={tel}
-                onChange={(e) => setTel(e.target.value)}
+                onChange={(e) => setTel(formatTel(e.target.value))}
                 placeholder="010-0000-0000"
                 className="flex-1 text-[13px] text-zinc-800 border-b border-zinc-200 outline-none py-0.5 bg-transparent"
               />

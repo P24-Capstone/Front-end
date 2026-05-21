@@ -117,7 +117,7 @@ export default function MissionNewPage() {
                   }`}
                 >
                   <div className="w-8 h-8 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
-                    <span className="text-[12px] font-bold text-white">{mem.memNic[0]}</span>
+                    <span className="text-[12px] font-bold text-white">{mem.memNic?.[0] ?? '?'}</span>
                   </div>
                   <span className={`text-[14px] font-medium ${selectedMemberId === mem.memId ? 'text-[#3B3EFF]' : 'text-zinc-800'}`}>
                     {mem.memNic}

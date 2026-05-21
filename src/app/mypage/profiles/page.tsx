@@ -187,7 +187,7 @@ export default function ProfilesPage() {
                 className="w-12 h-12 rounded-full shrink-0 flex items-center justify-center text-[18px] font-bold text-zinc-700"
                 style={{ backgroundColor: GROUP_COLORS[profile.colorIdx] }}
               >
-                {profile.memNic[0]}
+                {profile.memNic?.[0] ?? '?'}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[14px] font-semibold text-zinc-900 truncate">{profile.memNic}</p>

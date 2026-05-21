@@ -6,6 +6,13 @@ import { useParams } from 'next/navigation';
 import api from '@/lib/api';
 import { useHeaderSlotStore } from '@/store/headerSlot';
 
+const CameraIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+    <path d="M12 9a3.75 3.75 0 1 0 0 7.5A3.75 3.75 0 0 0 12 9Z" />
+    <path fillRule="evenodd" d="M9.344 3.071a49.52 49.52 0 0 1 5.312 0c.967.052 1.83.585 2.332 1.39l.821 1.317c.24.383.645.643 1.11.71.386.054.77.113 1.152.177 1.432.239 2.429 1.493 2.429 2.909V18a3 3 0 0 1-3 3h-15a3 3 0 0 1-3-3V9.574c0-1.416.997-2.67 2.429-2.909.382-.064.766-.123 1.151-.178a1.56 1.56 0 0 0 1.11-.71l.822-1.315a2.942 2.942 0 0 1 2.332-1.39ZM6.75 12.75a5.25 5.25 0 1 1 10.5 0 5.25 5.25 0 0 1-10.5 0Zm12-1.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
+  </svg>
+);
+
 interface Team {
   teamId: string;
   teamName: string;
@@ -34,6 +41,10 @@ export default function GroupInfoPage() {
   const [teamInfo, setTeamInfo] = useState('');
   const [teamCategory, setTeamCategory] = useState('');
   const [maxMembers, setMaxMembers] = useState('');
+  const [teamImg, setTeamImg] = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const initialized = useRef(false);
 
   const { data: group, isLoading } = useQuery<Team>({
@@ -59,6 +70,7 @@ export default function GroupInfoPage() {
     setTeamInfo(group.teamInfo ?? '');
     setTeamCategory(group.teamCategory ?? '');
     setMaxMembers(String(group.maxMembers));
+    setTeamImg(group.teamImg ?? '');
     initialized.current = true;
   }
 
@@ -72,13 +84,38 @@ export default function GroupInfoPage() {
         teamInfo,
         teamCategory,
         maxMembers: Number(maxMembers),
+        teamImg,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['group', id] });
       queryClient.invalidateQueries({ queryKey: ['groupName', id] });
+      setImagePreview(null);
       setEditing(false);
     },
   });
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImagePreview(URL.createObjectURL(file));
+    setImageUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const { data } = await api.post<{ success: boolean; data: string }>(
+        '/api/files/upload',
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      setTeamImg(data.data);
+    } catch {
+      setImagePreview(null);
+      alert('이미지 업로드에 실패했습니다.');
+    } finally {
+      setImageUploading(false);
+      e.target.value = '';
+    }
+  };
 
   const handleCancel = () => {
     if (group) {
@@ -86,7 +123,9 @@ export default function GroupInfoPage() {
       setTeamInfo(group.teamInfo ?? '');
       setTeamCategory(group.teamCategory ?? '');
       setMaxMembers(String(group.maxMembers));
+      setTeamImg(group.teamImg ?? '');
     }
+    setImagePreview(null);
     setEditing(false);
   };
 
@@ -112,13 +151,40 @@ export default function GroupInfoPage() {
     <div className="pt-4 px-2 space-y-4">
       {/* 모임 이미지 + 이름 + 버튼 */}
       <div className="flex items-center gap-4">
-        {group.teamImg ? (
-          <img src={group.teamImg} alt={group.teamName} className="w-14 h-14 rounded-full object-cover shrink-0" />
-        ) : (
-          <div className="w-14 h-14 rounded-full bg-[#C4B5FD] flex items-center justify-center text-white text-xl font-bold shrink-0">
-            {group.teamName[0]}
-          </div>
-        )}
+        <div className="relative shrink-0">
+          {imagePreview || teamImg ? (
+            <img
+              src={imagePreview ?? teamImg}
+              alt={group.teamName}
+              className="w-14 h-14 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-full bg-[#C4B5FD] flex items-center justify-center text-white text-xl font-bold">
+              {group.teamName[0]}
+            </div>
+          )}
+          {editing && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={imageUploading}
+              className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center text-white disabled:opacity-50"
+            >
+              {imageUploading ? (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <CameraIcon />
+              )}
+            </button>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageChange}
+          />
+        </div>
         <div className="flex-1 min-w-0">
           <p className="text-[17px] font-bold text-zinc-900 truncate">{group.teamName}</p>
           <p className="text-[13px] text-zinc-400">{group.teamCategory}</p>

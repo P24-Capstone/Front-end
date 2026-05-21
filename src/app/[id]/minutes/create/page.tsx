@@ -161,34 +161,50 @@ export default function MinutesCreatePage() {
   }, [setPageHeader]);
 
   const createMutation = useMutation({
-    mutationFn: (recFileKey: string) =>
-      api.post('/api/meeting-records', { teamId: id, recFileKey }),
+    mutationFn: ({ recFileKey, meetingTitle }: { recFileKey: string; meetingTitle: string }) =>
+      api.post('/api/meeting-records', { teamId: id, recFileKey, meetingTitle }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meeting-records', id] });
       router.back();
-    },
-    onError: () => {
-      setCurrentStep(0);
     },
   });
 
   useEffect(() => {
     if (!generating) return;
+    let cancelled = false;
     const interval = setInterval(() => {
       setDots((d) => (d.length >= 3 ? '' : d + '·'));
     }, 400);
-    const t1 = setTimeout(() => setCurrentStep(1), 600);
-    const t2 = setTimeout(() => setCurrentStep(2), 1500);
-    const t3 = setTimeout(() => {
-      setCurrentStep(3);
-      const fileKey = files[0]?.file.name ?? 'recording';
-      createMutation.mutate(fileKey);
-    }, 2500);
+
+    async function run() {
+      try {
+        const formData = new FormData();
+        formData.append('file', files[0].file);
+        const { data: uploadRes } = await api.post('/api/files/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        if (cancelled) return;
+        const fileUrl = uploadRes.data as string;
+
+        setCurrentStep(1);
+        await new Promise((r) => setTimeout(r, 900));
+        if (cancelled) return;
+
+        setCurrentStep(2);
+        await new Promise((r) => setTimeout(r, 1000));
+        if (cancelled) return;
+
+        setCurrentStep(3);
+        createMutation.mutate({ recFileKey: fileUrl, meetingTitle: title });
+      } catch {
+        if (!cancelled) setGenerating(false);
+      }
+    }
+
+    run();
     return () => {
+      cancelled = true;
       clearInterval(interval);
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generating]);

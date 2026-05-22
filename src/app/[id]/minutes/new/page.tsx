@@ -29,7 +29,7 @@ export default function MinutesNewPage() {
 
     // window.__uploadedAudio 에 임시 보관 (가장 심플한 방법)
     (window as any).__uploadedAudio = file;
-    router.push(`/${id}/minutes/record?mode=upload`);
+    router.push(`/${id}/minutes/recode?mode=upload`);
   };
 
   return (
@@ -52,7 +52,7 @@ export default function MinutesNewPage() {
 
         {/* 녹음 시작 카드 */}
         <button
-          onClick={() => router.push(`/${id}/minutes/record?mode=record`)}
+          onClick={() => router.push(`/${id}/minutes/recode?mode=record`)}
           className="bg-white rounded-2xl px-5 py-6 flex items-center gap-4 active:bg-zinc-50 transition-colors text-left w-full"
         >
           <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center shrink-0">

@@ -60,7 +60,7 @@ export default function MyPage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const { data: uploadRes } = await api.post('/api/files/upload', formData);
+      const { data: uploadRes } = await api.post('/api/files/upload?type=profile', formData);
       const imgFileKey = uploadRes.data as string;
       await api.post('/api/users/me/images', { imgFileKey });
       await refetchImages();

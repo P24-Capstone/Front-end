@@ -138,7 +138,7 @@ function JoinByCodeModal({ onClose, onSuccess }: { onClose: () => void, onSucces
     try {
       const form = new FormData();
       form.append('file', file);
-      const { data: uploadRes } = await api.post('/api/files/upload', form, {
+      const { data: uploadRes } = await api.post('/api/files/upload?type=profile', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       const imgFileKey: string = uploadRes.data;

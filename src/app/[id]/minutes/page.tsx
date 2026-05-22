@@ -144,7 +144,7 @@ export default function MinutesPage() {
         {/* FAB */}
         {isLeader && (
           <Link
-            href={`/${id}/minutes/create`}
+            href={`/${id}/minutes/new`}
             className="fixed bottom-6 bg-[#3B3EFF] text-white text-[13px] font-semibold px-4 py-2.5 rounded-full shadow-lg flex items-center gap-1.5"
             style={{ right: 'max(1rem, calc((100vw - 390px) / 2 + 1rem))' }}
           >

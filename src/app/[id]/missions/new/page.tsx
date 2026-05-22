@@ -1,20 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useMutation } from '@tanstack/react-query';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useHeaderSlotStore } from '@/store/headerSlot';
-import api from '@/lib/api';
 
 const INPUT_CLS = 'w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-[14px] text-zinc-800 placeholder:text-zinc-300 outline-none focus:border-[#3B3EFF] transition-colors bg-white';
 
-interface MemberItem {
-  memId: string;
-  memNic: string;
-}
+// TODO: 백엔드 연결 시 API로 교체
+const MOCK_MEMBERS = [
+  { id: 'M1', name: '김철수', initial: '김' },
+  { id: 'M2', name: '이영희', initial: '이' },
+  { id: 'M3', name: '박지수', initial: '박' },
+];
 
 export default function MissionNewPage() {
-  const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
   const kind = searchParams.get('kind');
@@ -30,7 +29,6 @@ export default function MissionNewPage() {
   const [content, setContent] = useState('');
   const [useAI, setUseAI] = useState(true);
   const [formItems, setFormItems] = useState(['', '']);
-  const [members, setMembers] = useState<MemberItem[]>([]);
 
   useEffect(() => {
     setPageHeader({
@@ -40,35 +38,7 @@ export default function MissionNewPage() {
     return () => setPageHeader(null);
   }, [setPageHeader, isForm]);
 
-  useEffect(() => {
-    if (!id) return;
-    api.get(`/api/members?teamId=${id}`).then(({ data }) => {
-      setMembers(
-        (data.data as { memId: string; memNic: string; memState: string }[])
-          .filter((m) => m.memState === 'A')
-          .map((m) => ({ memId: m.memId, memNic: m.memNic }))
-      );
-    }).catch(() => {});
-  }, [id]);
-
-  const createMutation = useMutation({
-    mutationFn: () => {
-      const missionType = isForm ? (useAI ? 'I' : 'B') : 'T';
-      return api.post('/api/missions', {
-        missionTitle: title.trim(),
-        missionContent: content.trim(),
-        missionType,
-        missionStartDtm: startDate + ' 00:00:00',
-        missionEndDtm: endDate + ' 23:59:59',
-        teamId: id,
-      });
-    },
-    onSuccess: () => router.back(),
-    onError: () => alert('미션 생성에 실패했습니다.'),
-  });
-
-  const canSubmit = title.trim() && startDate && endDate && content.trim() &&
-    (scope === '공통' || !!selectedMemberId);
+  const canSubmit = title.trim() && startDate && endDate && content.trim() && (scope === '공통' || !!selectedMemberId);
 
   return (
     <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-4">
@@ -105,24 +75,19 @@ export default function MissionNewPage() {
           {scope === '개인' && (
             <div className="flex flex-col gap-2">
               <p className="text-[12px] text-zinc-400">부여할 멤버를 선택해주세요.</p>
-              {members.length === 0 && (
-                <p className="text-[12px] text-zinc-300 text-center py-3">멤버가 없습니다.</p>
-              )}
-              {members.map((mem) => (
+              {MOCK_MEMBERS.map((mem) => (
                 <button
-                  key={mem.memId}
-                  onClick={() => setSelectedMemberId(mem.memId)}
+                  key={mem.id}
+                  onClick={() => setSelectedMemberId(mem.id)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
-                    selectedMemberId === mem.memId ? 'border-[#3B3EFF] bg-[#EBEBFF]' : 'border-zinc-200 bg-white'
+                    selectedMemberId === mem.id ? 'border-[#3B3EFF] bg-[#EBEBFF]' : 'border-zinc-200 bg-white'
                   }`}
                 >
                   <div className="w-8 h-8 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
                     <span className="text-[12px] font-bold text-white">{mem.memNic?.[0] ?? '?'}</span>
                   </div>
-                  <span className={`text-[14px] font-medium ${selectedMemberId === mem.memId ? 'text-[#3B3EFF]' : 'text-zinc-800'}`}>
-                    {mem.memNic}
-                  </span>
-                  {selectedMemberId === mem.memId && (
+                  <span className={`text-[14px] font-medium ${selectedMemberId === mem.id ? 'text-[#3B3EFF]' : 'text-zinc-800'}`}>{mem.name}</span>
+                  {selectedMemberId === mem.id && (
                     <svg className="ml-auto" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#3B3EFF" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
@@ -170,6 +135,7 @@ export default function MissionNewPage() {
       {/* 폼미션 전용 카드 */}
       {isForm && (
         <>
+          {/* AI 인증 토글 */}
           <div className="bg-white rounded-xl p-4 flex items-center justify-between">
             <span className="text-[14px] font-semibold text-zinc-800">AI 자동 인증</span>
             <div
@@ -180,6 +146,7 @@ export default function MissionNewPage() {
             </div>
           </div>
 
+          {/* 폼 항목 카드 */}
           <div className="bg-white rounded-xl p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <label className="text-[13px] font-medium text-zinc-500">폼미션 항목</label>
@@ -187,11 +154,15 @@ export default function MissionNewPage() {
                 <button
                   onClick={() => formItems.length > 1 && setFormItems(formItems.slice(0, -1))}
                   className="w-7 h-7 rounded-full border border-zinc-300 flex items-center justify-center text-zinc-500 text-base leading-none"
-                >−</button>
+                >
+                  −
+                </button>
                 <button
                   onClick={() => setFormItems([...formItems, ''])}
                   className="w-7 h-7 rounded-full border border-zinc-300 flex items-center justify-center text-zinc-500 text-base leading-none"
-                >+</button>
+                >
+                  +
+                </button>
               </div>
             </div>
             {formItems.map((item, i) => (
@@ -208,16 +179,23 @@ export default function MissionNewPage() {
               />
             ))}
           </div>
+
+          {/* 파일 첨부 카드 */}
+          <div className="bg-white rounded-xl px-4 py-3.5 flex items-center gap-3 text-zinc-400 cursor-pointer active:bg-zinc-50">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+            </svg>
+            <span className="text-[14px]">파일 첨부</span>
+          </div>
         </>
       )}
 
       {/* 등록 버튼 */}
       <button
-        disabled={!canSubmit || createMutation.isPending}
-        onClick={() => createMutation.mutate()}
+        disabled={!canSubmit}
         className="w-full h-[52px] bg-[#3B3EFF] text-white rounded-2xl text-[15px] font-bold disabled:bg-zinc-300 disabled:text-zinc-500 transition-colors mt-2"
       >
-        {createMutation.isPending ? '생성 중...' : '미션 등록'}
+        미션 등록
       </button>
     </div>
   );

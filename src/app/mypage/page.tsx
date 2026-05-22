@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -77,6 +77,13 @@ export default function MyPage() {
     router.push('/auth/login');
   };
 
+  const formatTel = (v: string) => {
+    const d = v.replace(/\D/g, '');
+    if (d.length < 4) return d;
+    if (d.length < 8) return `${d.slice(0, 3)}-${d.slice(3)}`;
+    return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  };
+
   const realImages = images.filter((img) => img.imgFileKey !== 'default');
   const profileImgUrl = realImages[realImages.length - 1]?.imgFileKey ?? null;
   const initial = user?.userName?.[0] ?? '?';
@@ -85,7 +92,7 @@ export default function MyPage() {
     <div className="w-full h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm overflow-hidden">
       {/* 헤더 */}
       <header className="flex items-center px-4 h-[52px] shrink-0 border-b border-zinc-100">
-        <button onClick={() => router.back()} className="p-1 text-zinc-500 mr-2">
+        <button onClick={() => router.push('/main')} className="p-1 text-zinc-500 mr-2">
           <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
@@ -125,7 +132,7 @@ export default function MyPage() {
             </div>
             {[
               { label: '이름', value: user?.userName },
-              { label: '전화번호', value: user?.userTel },
+              { label: '전화번호', value: user?.userTel ? formatTel(user.userTel) : undefined },
               { label: '이메일', value: user?.userEmail },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-center py-2.5">

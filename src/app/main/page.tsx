@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { useState } from 'react';
@@ -76,9 +76,10 @@ interface MenuPopupProps {
   name: string;
   email: string;
   initial: string;
+  profileImg: string | null;
 }
 
-function MenuPopup({ onClose, name, email, initial }: MenuPopupProps) {
+function MenuPopup({ onClose, name, email, initial, profileImg }: MenuPopupProps) {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -91,8 +92,12 @@ function MenuPopup({ onClose, name, email, initial }: MenuPopupProps) {
       <div className="absolute top-[52px] right-4 z-50 bg-white rounded-xl shadow-xl w-[190px] overflow-hidden border border-zinc-100">
         {/* 프로필 */}
         <div className="flex items-center gap-2.5 px-3.5 py-3 border-b border-zinc-100">
-          <div className="w-8 h-8 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
-            <span className="text-[13px] font-bold text-white">{initial}</span>
+          <div className="w-8 h-8 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0 overflow-hidden">
+            {profileImg ? (
+              <img src={profileImg} alt="profile" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-[13px] font-bold text-white">{initial}</span>
+            )}
           </div>
           <div className="min-w-0">
             <p className="text-[13px] font-bold text-zinc-900 truncate">{name}</p>
@@ -547,6 +552,17 @@ export default function MainPage() {
   const initial = name[0] || '?';
   const id = user?.userId || '';
 
+  const { data: profileImages = [] } = useQuery<{ imgId: number; imgFileKey: string }[]>({
+    queryKey: ['me', 'images'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/users/me/images');
+      return data.data;
+    },
+    enabled: !!id,
+  });
+  const realProfileImages = profileImages.filter((img) => img.imgFileKey !== 'default');
+  const profileImg = realProfileImages[realProfileImages.length - 1]?.imgFileKey ?? null;
+
   const { data: myTeams} = useQuery({
     queryKey: ['myTeams'],
     queryFn: async () => {
@@ -594,7 +610,7 @@ export default function MainPage() {
 
   return (
     <div className="w-full h-screen bg-white flex flex-col max-w-[390px] mx-auto shadow-sm relative">
-      {menuOpen && <MenuPopup onClose={() => setMenuOpen(false)} name={name} email={email} initial={initial} />}
+      {menuOpen && <MenuPopup onClose={() => setMenuOpen(false)} name={name} email={email} initial={initial} profileImg={profileImg} />}
       {joinModalOpen && (
         <JoinByCodeModal
           onClose={() => setJoinModalOpen(false)}
@@ -605,8 +621,12 @@ export default function MainPage() {
       <header className="flex items-center justify-between px-4 h-[52px] shrink-0 border-b border-zinc-100 bg-white">
         <span className="text-[17px] font-bold tracking-tight">CrewWise</span>
         <div className="flex items-center gap-2">
-          <button onClick={() => setMenuOpen(true)} className="w-7 h-7 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
-            <span className="text-[13px] font-bold text-white">{initial}</span>
+          <button onClick={() => setMenuOpen(true)} className="w-7 h-7 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0 overflow-hidden">
+            {profileImg ? (
+              <img src={profileImg} alt="profile" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-[13px] font-bold text-white">{initial}</span>
+            )}
           </button>
         </div>
       </header>

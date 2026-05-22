@@ -10,12 +10,13 @@ type SortType = '생성일순' | '이름순';
 
 interface MeetingRecordResponse {
   meetingId: number;
-  meetingTitle: string;
-  fullScript: string;
-  aiSummary: string;
-  regDtm: string;
   teamId: string;
   recFileKey: string;
+  status: string;           // P(처리중) | C(완료) | F(실패)
+  meetingTitle: string | null;
+  fullScript: string | null;
+  aiSummary: string | null;
+  meetingRegDtm: string;
 }
 
 interface MemberResponse {
@@ -23,8 +24,13 @@ interface MemberResponse {
   memState: string;
 }
 
-function getGroup(dateStr: string): '지난 7일' | '지난 30일' | '이전' {
-  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+function parseDtm(dtm: string) {
+  // "YYYY-MM-DD HH:mm:ss" → Date (ISO 형식으로 변환)
+  return new Date(dtm.replace(' ', 'T'));
+}
+
+function getGroup(dtm: string): '지난 7일' | '지난 30일' | '이전' {
+  const diff = Math.floor((Date.now() - parseDtm(dtm).getTime()) / 86400000);
   if (diff <= 7) return '지난 7일';
   if (diff <= 30) return '지난 30일';
   return '이전';
@@ -41,8 +47,33 @@ function MicIcon() {
   );
 }
 
+function StatusBadge({ status }: { status: string }) {
+  if (status === 'C') {
+    return (
+      <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-[#EBEBFF] text-[#3B3EFF]">
+        AI 요약
+      </span>
+    );
+  }
+  if (status === 'P') {
+    return (
+      <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-500 flex items-center gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" />
+        처리 중
+      </span>
+    );
+  }
+  if (status === 'F') {
+    return (
+      <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-red-50 text-red-400">
+        생성 실패
+      </span>
+    );
+  }
+  return null;
+}
+
 function MinuteCard({ record, groupId }: { record: MeetingRecordResponse; groupId: string }) {
-  const hasAiSummary = !!record.aiSummary;
   return (
     <Link href={`/${groupId}/minutes/${record.meetingId}`}>
       <div className="bg-white rounded-lg px-4 py-3.5 flex items-center gap-3 active:bg-zinc-50 transition-colors">
@@ -51,16 +82,12 @@ function MinuteCard({ record, groupId }: { record: MeetingRecordResponse; groupI
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap gap-1 mb-1.5">
-            {hasAiSummary && (
-              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-[#EBEBFF] text-[#3B3EFF]">
-                AI 요약
-              </span>
-            )}
+            <StatusBadge status={record.status} />
           </div>
           <p className="text-[14px] font-medium text-zinc-800 truncate">
             {record.meetingTitle || '제목 없음'}
           </p>
-          <p className="text-[12px] text-zinc-400 mt-0.5">{record.regDtm?.slice(0, 10)}</p>
+          <p className="text-[12px] text-zinc-400 mt-0.5">{record.meetingRegDtm?.slice(0, 10)}</p>
         </div>
       </div>
     </Link>
@@ -89,17 +116,22 @@ export default function MinutesPage() {
       return data.data as MeetingRecordResponse[];
     },
     enabled: !!id,
+    // 처리 중인 항목이 있으면 5초마다 갱신
+    refetchInterval: (query) => {
+      const list = query.state.data as MeetingRecordResponse[] | undefined;
+      return list?.some((r) => r.status === 'P') ? 5000 : false;
+    },
   });
 
   const sorted = [...records].sort((a, b) => {
     if (sort === '이름순') return (a.meetingTitle ?? '').localeCompare(b.meetingTitle ?? '', 'ko');
-    return b.regDtm.localeCompare(a.regDtm);
+    return b.meetingRegDtm.localeCompare(a.meetingRegDtm);
   });
 
   const GROUP_LABELS = ['지난 7일', '지난 30일', '이전'] as const;
   const groups = GROUP_LABELS.map((label) => ({
     label,
-    items: sorted.filter((m) => getGroup(m.regDtm) === label),
+    items: sorted.filter((m) => getGroup(m.meetingRegDtm) === label),
   })).filter((g) => g.items.length > 0);
 
   return (

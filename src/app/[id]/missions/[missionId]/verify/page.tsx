@@ -55,7 +55,7 @@ export default function MissionVerifyPage() {
       if (isAI && imageItems.length > 0) {
         const form = new FormData();
         form.append('file', imageItems[0].file);
-        const { data: uploadRes } = await api.post('/api/files/upload', form, {
+        const { data: uploadRes } = await api.post('/api/files/upload?type=missionVerify', form, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         imageUrl = uploadRes.data as string;
@@ -65,7 +65,7 @@ export default function MissionVerifyPage() {
       if (!isAI && file) {
         const form = new FormData();
         form.append('file', file);
-        const { data: uploadRes } = await api.post('/api/files/upload', form, {
+        const { data: uploadRes } = await api.post('/api/files/upload?type=missionVerify', form, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         fileUrl = uploadRes.data as string;

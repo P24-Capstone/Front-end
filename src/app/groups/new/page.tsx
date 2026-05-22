@@ -43,7 +43,7 @@ export default function CreateGroupPage() {
       form.append('file', file);
 
       const { data } = await api.post<{ success: boolean; message: string; data: string }>(
-        '/api/files/upload',
+        '/api/files/upload?type=team',
         form,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );

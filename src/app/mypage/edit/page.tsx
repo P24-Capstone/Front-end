@@ -12,11 +12,17 @@ interface UserResponse {
   userTel: string;
 }
 
+interface UserImgResponse {
+  imgId: number;
+  imgFileKey: string;
+}
+
 export default function MyPageEditPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const { data: user, isLoading } = useQuery({
     queryKey: ['me'],
@@ -26,31 +32,67 @@ export default function MyPageEditPage() {
     },
   });
 
+  const { data: images = [] } = useQuery({
+    queryKey: ['me', 'images'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/users/me/images');
+      return data.data as UserImgResponse[];
+    },
+  });
+
   const [name, setName] = useState('');
   const [tel, setTel] = useState('');
+
+  const formatTel = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length < 4) return digits;
+    if (digits.length < 8) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  };
 
   const initialized = useRef(false);
   if (user && !initialized.current) {
     setName(user.userName ?? '');
-    setTel(user.userTel ?? '');
+    setTel(formatTel(user.userTel ?? ''));
     initialized.current = true;
   }
 
   const { mutate: save, isPending } = useMutation({
     mutationFn: () =>
-      api.patch('/api/auth/me', { userName: name, userTel: tel }),
+      api.patch('/api/users/me', { userName: name, userTel: tel.replace(/-/g, '') }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['me'] });
       router.push('/mypage');
     },
+    onError: (err: unknown) => {
+      console.error('프로필 저장 실패', err);
+      alert('저장에 실패했습니다. 다시 시도해 주세요.');
+    },
   });
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setPreview(URL.createObjectURL(file));
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { data: uploadRes } = await api.post('/api/files/upload', formData);
+      const imgFileKey = uploadRes.data as string;
+      await api.post('/api/users/me/images', { imgFileKey });
+      setPreview(imgFileKey);
+      queryClient.invalidateQueries({ queryKey: ['me', 'images'] });
+    } catch {
+      alert('이미지 업로드에 실패했습니다.');
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
   };
 
+  const realImages = images.filter((img) => img.imgFileKey !== 'default');
+  const currentProfileUrl = realImages[realImages.length - 1]?.imgFileKey ?? null;
+  const displayImg = preview ?? currentProfileUrl;
   const initial = user?.userName?.[0] ?? '?';
 
   return (
@@ -70,26 +112,30 @@ export default function MyPageEditPage() {
         <div className="flex flex-col flex-1 overflow-y-auto">
           {/* 프로필 이미지 */}
           <div className="flex flex-col items-center py-8 border-b border-zinc-100">
-            <button onClick={() => fileRef.current?.click()} className="relative group">
+            <button onClick={() => !uploading && fileRef.current?.click()} className="relative group">
               <div className="w-20 h-20 rounded-full bg-[#C4B5FD] flex items-center justify-center overflow-hidden">
-                {preview ? (
-                  <img src={preview} alt="profile" className="w-full h-full object-cover" />
+                {displayImg ? (
+                  <img src={displayImg} alt="profile" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-[32px] font-bold text-white">{initial}</span>
                 )}
               </div>
               <div className="absolute inset-0 rounded-full bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+                {uploading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                )}
               </div>
             </button>
             <button
-              onClick={() => fileRef.current?.click()}
-              className="mt-2 text-[12px] text-zinc-500"
+              onClick={() => !uploading && fileRef.current?.click()}
+              className="mt-2 text-[12px] text-zinc-500 disabled:opacity-50"
             >
-              이미지 업로드
+              {uploading ? '업로드 중...' : '이미지 변경'}
             </button>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
           </div>
@@ -103,7 +149,7 @@ export default function MyPageEditPage() {
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="홍길동"
+                placeholder=""
                 className="flex-1 text-[13px] text-zinc-800 border-b border-zinc-200 outline-none py-0.5 bg-transparent"
               />
             </div>
@@ -112,7 +158,7 @@ export default function MyPageEditPage() {
               <span className="text-[13px] text-zinc-400 w-16 shrink-0">전화번호</span>
               <input
                 value={tel}
-                onChange={(e) => setTel(e.target.value)}
+                onChange={(e) => setTel(formatTel(e.target.value))}
                 placeholder="010-0000-0000"
                 className="flex-1 text-[13px] text-zinc-800 border-b border-zinc-200 outline-none py-0.5 bg-transparent"
               />

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import api from '@/lib/api';
 
 // ─── 타입 정의 ───────────────────────────────────────────────
 type RecordingState = 'idle' | 'recording' | 'paused' | 'uploading' | 'done' | 'error';
@@ -9,7 +10,6 @@ type UploadStep = 0 | 1 | 2; // 0=대기, 1=업로드 중, 2=완료
 
 // ─── 상수 ────────────────────────────────────────────────────
 const NUM_BARS = 40;
-const SPRING_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 
 // ─── 유틸 ────────────────────────────────────────────────────
 function formatTime(totalSeconds: number): string {
@@ -55,34 +55,20 @@ export default function RecordPage() {
         formData.append('audio', blob, filename);
         formData.append('teamId', teamId);
 
-        const token =
-          typeof window !== 'undefined' ? localStorage.getItem('accessToken') : '';
-
-        const res = await fetch(`${SPRING_API_URL}/api/meeting-records`, {
-          method: 'POST',
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: formData,
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.message ?? '서버 오류가 발생했습니다.');
-        }
-
-        const result = await res.json();
+        // api 인스턴스 사용 → Authorization 헤더 자동 첨부 (lib/api.ts 인터셉터)
+        const { data: result } = await api.post('/api/meeting-records', formData);
 
         // 업로드 완료 — AI 처리는 백그라운드에서 진행
         setUploadStep(2);
         setRecordingState('done');
 
-        // 1.5초 후 상세 페이지로 이동 (상세 페이지에서 처리 중 상태 표시)
         setTimeout(() => {
           router.push(`/${teamId}/minutes/${result.data?.meetingId}`);
         }, 1500);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
+        const msg =
+          (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+          ?? (err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
         setErrorMsg(msg);
         setRecordingState('error');
       }

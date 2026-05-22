@@ -101,7 +101,7 @@ export default function SubmissionsPage() {
             <button key={s.id} onClick={() => router.push(href)}
               className="bg-white rounded-xl px-4 py-3.5 flex items-center gap-3 text-left w-full">
               <div className="w-9 h-9 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
-                <span className="text-[13px] font-bold text-white">{s.initial}</span>
+                <span className="text-[13px] font-bold text-white">{s.memNic?.[0] ?? '?'}</span>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold text-zinc-900">{s.memberName}</p>

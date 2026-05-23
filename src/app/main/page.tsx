@@ -1,7 +1,7 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
@@ -58,7 +58,6 @@ interface TeamResponse {
 
 
 
-const SCOPE_COLOR: Record<string, string> = { 공통: '#FF9E6A', 개인: '#E5638C' };
 const AUTH_COLOR: Record<string, string> = { 'AI인증': '#3B3EFF', '수동인증': '#31DBD5' };
 
 function deadlineColor(d: string | null) {
@@ -539,6 +538,25 @@ export default function MainPage() {
   const [newsLimit, setNewsLimit] = useState(5);
   const queryClient = useQueryClient();
 
+  useEffect(() => {
+    const raw = localStorage.getItem('token');
+    if (!raw || raw === 'null') {
+      localStorage.removeItem('token');
+      router.replace('/auth/login');
+      return;
+    }
+    try {
+      const payload = JSON.parse(atob(raw.split('.')[1]));
+      if (payload.exp * 1000 <= Date.now()) {
+        localStorage.removeItem('token');
+        router.replace('/auth/login');
+      }
+    } catch {
+      localStorage.removeItem('token');
+      router.replace('/auth/login');
+    }
+  }, [router]);
+
   const { data: user } = useQuery({
     queryKey: ['me'],
     queryFn: async () => {
@@ -563,7 +581,7 @@ export default function MainPage() {
   const realProfileImages = profileImages.filter((img) => img.imgFileKey !== 'default');
   const profileImg = realProfileImages[realProfileImages.length - 1]?.imgFileKey ?? null;
 
-  const { data: myTeams} = useQuery({
+  const { data: myTeams } = useQuery({
     queryKey: ['myTeams'],
     queryFn: async () => {
       const { data } = await api.get('/api/teams/my');

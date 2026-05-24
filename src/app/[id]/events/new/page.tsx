@@ -21,11 +21,8 @@ export default function CreateEventPage() {
   const [formData, setFormData] = useState({
     evtTitle: '',
     evtContent: '',
-    evtLocation: '',
     startDate: '',
-    startTime: '',
     endDate: '',
-    endTime: '',
   });
 
   const createEventMutation = useMutation({
@@ -49,22 +46,13 @@ export default function CreateEventPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const startDt = formData.startTime
-      ? `${formData.startDate} ${formData.startTime}`
-      : formData.startDate;
-    const endDt = formData.endDate
-      ? formData.endTime
-        ? `${formData.endDate} ${formData.endTime}`
-        : formData.endDate
-      : null;
 
     createEventMutation.mutate({
       teamId: id,
       evtTitle: formData.evtTitle,
       evtContent: formData.evtContent,
-      evtLocation: formData.evtLocation,
-      evtStartDt: startDt,
-      ...(endDt && { evtEndDt: endDt }),
+      evtStartDt: formData.startDate,                                  // YYYY-MM-DD
+      ...(formData.endDate && { evtEndDt: formData.endDate }),         // YYYY-MM-DD
     });
   };
 
@@ -85,18 +73,7 @@ export default function CreateEventPage() {
           />
         </div>
 
-        <div className="space-y-1.5">
-          <label className="text-[13px] font-semibold text-zinc-800">장소</label>
-          <input
-            type="text"
-            placeholder="어디서 모일까요?"
-            className={inputCls}
-            value={formData.evtLocation}
-            onChange={(e) => setFormData({ ...formData, evtLocation: e.target.value })}
-          />
-        </div>
-
-        {/* 시작 */}
+        {/* 시작 일자 */}
         <div className="space-y-1.5">
           <label className="text-[13px] font-semibold text-zinc-800">시작</label>
           <div className="flex gap-2">

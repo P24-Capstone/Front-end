@@ -15,7 +15,6 @@ interface MemberResponse {
   procDtm: string | null;
   userId: string;
   teamId: string;
-  userImgId: number | null;
   imgFileKey: string | null;
 }
 

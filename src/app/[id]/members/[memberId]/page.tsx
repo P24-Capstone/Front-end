@@ -14,7 +14,6 @@ interface MemberResponse {
   procDtm: string | null;
   userId: string;
   teamId: string;
-  userImgId: number | null;
   imgFileKey: string | null;
 }
 
@@ -173,6 +172,7 @@ export default function MemberDetailPage() {
   const queryClient = useQueryClient();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showKickConfirm, setShowKickConfirm] = useState(false);
+  const [showDelegateConfirm, setShowDelegateConfirm] = useState(false);
 
   const { data: myMembership } = useQuery({
     queryKey: ['memberMe', id],
@@ -227,6 +227,12 @@ export default function MemberDetailPage() {
     onSuccess: () => { invalidate(); router.back(); },
   });
 
+  const delegateMutation = useMutation({
+    mutationFn: () => api.patch(`/api/members/${memberId}/delegate`),
+    onSuccess: () => { invalidate(); setShowDelegateConfirm(false); router.back(); },
+    onError: () => { alert('위임에 실패했습니다. 다시 시도해주세요.'); },
+  });
+
   if (isLoading) {
     return <div className="text-center py-20 text-zinc-500 text-sm">불러오는 중...</div>;
   }
@@ -244,6 +250,32 @@ export default function MemberDetailPage() {
 
   return (
     <div className="pt-6 px-1">
+      {showDelegateConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/50">
+          <div className="bg-white rounded-2xl w-full max-w-[300px] p-6 shadow-xl">
+            <h3 className="text-[16px] font-bold text-zinc-900 text-center mb-2">모임장 위임</h3>
+            <p className="text-[13px] text-zinc-500 text-center mb-6">
+              <span className="font-semibold text-zinc-800">{member?.memNic}</span> 님에게 모임장을 위임할까요?{'\n'}위임 후 되돌릴 수 없습니다.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDelegateConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl text-[14px] font-medium text-zinc-600 border border-zinc-200"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => delegateMutation.mutate()}
+                disabled={delegateMutation.isPending}
+                className="flex-1 py-2.5 rounded-xl text-[14px] font-semibold text-white bg-[#3B3EFF] disabled:opacity-60"
+              >
+                {delegateMutation.isPending ? '처리 중...' : '위임하기'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showKickConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/50">
           <div className="bg-white rounded-2xl w-full max-w-[300px] p-6 shadow-xl">
@@ -356,10 +388,18 @@ export default function MemberDetailPage() {
       )}
 
       {isLeader && !isOwnProfile && member.memState === 'A' && (
-        <div className="pt-2">
+        <div className="flex gap-3 pt-2">
+          {member.memRole === 'M' && (
+            <button
+              onClick={() => setShowDelegateConfirm(true)}
+              className="flex-1 py-3 rounded-xl text-[14px] font-semibold text-[#3B3EFF] border border-[#3B3EFF]"
+            >
+              모임장 위임
+            </button>
+          )}
           <button
             onClick={() => setShowKickConfirm(true)}
-            className="w-full py-3 rounded-xl text-[14px] font-semibold text-red-500 border border-red-200"
+            className="flex-1 py-3 rounded-xl text-[14px] font-semibold text-red-500 border border-red-200"
           >
             강퇴
           </button>

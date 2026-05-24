@@ -84,12 +84,6 @@ export default function CreateEventPage() {
               value={formData.startDate}
               onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
             />
-            <input
-              type="time"
-              className="w-32 shrink-0 h-12 px-3 bg-zinc-50 border border-zinc-200 rounded-xl text-[14px] outline-none focus:border-[#3B3EFF] focus:bg-white transition-colors"
-              value={formData.startTime}
-              onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-            />
           </div>
         </div>
 
@@ -104,12 +98,6 @@ export default function CreateEventPage() {
               className={inputCls}
               value={formData.endDate}
               onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-            />
-            <input
-              type="time"
-              className="w-32 shrink-0 h-12 px-3 bg-zinc-50 border border-zinc-200 rounded-xl text-[14px] outline-none focus:border-[#3B3EFF] focus:bg-white transition-colors"
-              value={formData.endTime}
-              onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
             />
           </div>
         </div>

@@ -69,11 +69,10 @@ export default function EventDetailPage() {
     initialized.current = true;
   }
 
+  // onSuccess를 useMutation 옵션에서 제거 (TanStack Query v5 호환)
   const saveMutation = useMutation({
-    mutationFn: () => {
-      const evtStartDt = startTime ? `${startDate} ${startTime}` : startDate;
-      const evtEndDt = endDate ? (endTime ? `${endDate} ${endTime}` : endDate) : null;
-      return api.put(`/api/events/${eventId}`, {
+    mutationFn: () =>
+      api.put(`/api/events/${eventId}`, {
         teamId: id,
         evtTitle: title,
         evtContent: content,
@@ -81,20 +80,30 @@ export default function EventDetailPage() {
         evtStartDt: startDate,
         evtEndDt: endDate,
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['event', eventId] });
-      queryClient.invalidateQueries({ queryKey: ['events', id] });
-      setEditing(false);
-    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => api.delete(`/api/events/${eventId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['events', id] });
-      router.back();
-    },
   });
+
+  const handleSave = () => {
+    saveMutation.mutate(undefined, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+        queryClient.invalidateQueries({ queryKey: ['events', id] });
+        setEditing(false);
+      },
+    });
+  };
+
+  const handleDelete = () => {
+    deleteMutation.mutate(undefined, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['events', id] });
+        router.back();
+      },
+    });
+  };
 
   const handleCancel = () => {
     if (event) {
@@ -138,7 +147,7 @@ export default function EventDetailPage() {
                 취소
               </button>
               <button
-                onClick={() => deleteMutation.mutate()}
+                onClick={handleDelete}
                 disabled={deleteMutation.isPending}
                 className="flex-1 py-2.5 rounded-xl text-[14px] font-semibold text-white bg-red-500 disabled:opacity-60"
               >
@@ -189,19 +198,18 @@ export default function EventDetailPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M16 2v4M8 2v4M3 10h18" />
           </svg>
           {editing ? (
-            <div className="flex items-center gap-2 flex-1">
+            <div className="flex flex-col gap-2 flex-1">
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="flex-1 border-b border-zinc-300 text-[13px] text-zinc-700 outline-none bg-transparent focus:border-[#3B3EFF] py-0.5"
+                className="w-full border-b border-zinc-300 text-[13px] text-zinc-700 outline-none bg-transparent focus:border-[#3B3EFF] py-0.5"
               />
-              <span className="text-zinc-400 text-[12px]">~</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="flex-1 border-b border-zinc-300 text-[13px] text-zinc-700 outline-none bg-transparent focus:border-[#3B3EFF] py-0.5"
+                className="w-full border-b border-zinc-300 text-[13px] text-zinc-700 outline-none bg-transparent focus:border-[#3B3EFF] py-0.5"
               />
             </div>
           ) : (
@@ -210,7 +218,7 @@ export default function EventDetailPage() {
               {event.evtEndDt && event.evtStartDt !== event.evtEndDt && ` ~ ${formatDate(event.evtEndDt)}`}
             </span>
           )}
-        </div>  
+        </div>
       </div>
 
       {/* 상세 */}
@@ -238,7 +246,7 @@ export default function EventDetailPage() {
             취소
           </button>
           <button
-            onClick={() => saveMutation.mutate()}
+            onClick={handleSave}
             disabled={saveMutation.isPending || !title.trim() || !startDate}
             className={`flex-1 py-3.5 rounded-xl text-[14px] font-semibold transition-colors ${!saveMutation.isPending && title.trim() && startDate ? 'bg-[#3B3EFF] text-white' : 'bg-zinc-200 text-zinc-400'}`}
           >

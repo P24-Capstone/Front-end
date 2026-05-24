@@ -49,7 +49,6 @@ function Badges({ scope }: { scope: '공통' | '개인' }) {
   return (
     <div className="flex gap-1 mb-1">
       <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: SCOPE_COLOR[scope] }}>{scope}</span>
-      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white bg-[#3B3EFF]">AI인증</span>
     </div>
   );
 }
@@ -165,7 +164,6 @@ export default function MissionsPage() {
   const [scopeTab, setScopeTab] = useState<ScopeTab>('전체');
   const [leaderTab, setLeaderTab] = useState<LeaderTab>('공통');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('전체');
-  const [showPopup, setShowPopup] = useState(false);
 
   const { data: myMember } = useQuery<MemberMe>({
     queryKey: ['memberMe', id],
@@ -318,7 +316,7 @@ export default function MissionsPage() {
       {/* 팀장 전용 플로팅 버튼 */}
       {isLeader && (
         <button
-          onClick={() => setShowPopup(true)}
+          onClick={() => router.push(`/${id}/missions/new`)}
           className="fixed bottom-[80px] w-12 h-12 bg-[#3B3EFF] rounded-full flex items-center justify-center shadow-lg z-20"
           style={{ right: 'calc(50% - 195px + 24px)' }}
         >
@@ -327,15 +325,6 @@ export default function MissionsPage() {
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
         </button>
-      )}
-
-      {showPopup && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => router.push(`/${id}/missions/new`)} />
-          <div className="fixed z-50 bg-white rounded-xl shadow-xl w-[180px] overflow-hidden border border-zinc-100"
-            style={{ bottom: 'calc(80px + 56px)', right: 'calc(50% - 195px + 16px)' }}>
-          </div>
-        </>
       )}
     </div>
   );

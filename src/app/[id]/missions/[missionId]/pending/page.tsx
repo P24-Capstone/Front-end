@@ -78,7 +78,7 @@ export default function MissionPendingPage() {
   });
 
   const status: Status = isError || !submission ? 'none'
-    : submission.verifyState === 'A' ? 'completed'
+    : (submission.verifyState === 'A' || submission.verifyState === 'F') ? 'completed'
     : submission.verifyState === 'R' ? 'failed'
     : 'pending';
 

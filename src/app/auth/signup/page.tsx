@@ -30,6 +30,13 @@ function Checkbox({ checked, onChange }: { checked: boolean; onChange: (v: boole
   );
 }
 
+function formatTel(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length < 4) return digits;
+  if (digits.length < 8) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const [form, setForm] = useState({ email: '', password: '', passwordConfirm: '', name: '', phone: '' });
@@ -42,7 +49,7 @@ export default function SignupPage() {
 
   function handleChange(e: { target: { name: string; value: string } }) {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({ ...prev, [name]: name === 'phone' ? formatTel(value) : value }));
     if (name === 'email') { setEmailChecked(false); setEmailError(''); }
   }
 
@@ -80,7 +87,7 @@ export default function SignupPage() {
         userEmail: form.email,
         userPw: form.password,
         userName: form.name,
-        userTel: form.phone,
+        userTel: form.phone.replace(/-/g, ''),
       });
       router.push('/auth/login');
     } catch {

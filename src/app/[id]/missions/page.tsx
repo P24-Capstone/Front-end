@@ -17,10 +17,12 @@ interface MissionData {
   missionTitle: string;
   missionContent: string;
   missionType: string; // 'A'(공통) | 'P'(개인)
-  verifyPrompt: string;
+  verifyPrompt: string | null;
   missionStartDtm: string;
   missionEndDtm: string;
   teamId: string;
+  memIds: string[];   // 개인 미션 대상 MEM_ID 목록
+  fileKeys: string[]; // 미션 첨부파일 URL 목록
 }
 
 const SCOPE_COLOR: Record<string, string> = { 공통: '#FF9E6A', 개인: '#E5638C' };

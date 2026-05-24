@@ -256,7 +256,7 @@ export default function MissionNewPage() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.heic,.heif"
           multiple
           className="hidden"
           onChange={handleFileChange}

@@ -143,7 +143,7 @@ export default function MissionVerifyPage() {
                 </button>
               )}
             </div>
-            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageAdd} />
+            <input ref={fileInputRef} type="file" accept="image/*,.heic,.heif" multiple className="hidden" onChange={handleImageAdd} />
           </div>
 
           <div className="flex items-start gap-2 bg-[#EEF0FF] rounded-xl px-4 py-3">

@@ -10,6 +10,7 @@ interface NoticeResponse {
   notiTitle: string;
   notiContent: string;
   notiFix: string;
+  notiRequired: string;
   regDtm: string;
   modDtm: string;
   teamId: string;
@@ -39,17 +40,8 @@ function DeleteConfirmPopup({ onConfirm, onCancel, isPending }: {
           <p className="text-[13px] text-zinc-400">삭제된 공지는 복구할 수 없어요.</p>
         </div>
         <div className="flex border-t border-zinc-100">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-3.5 text-[14px] font-medium text-zinc-500 border-r border-zinc-100"
-          >
-            취소
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={isPending}
-            className="flex-1 py-3.5 text-[14px] font-semibold text-red-500"
-          >
+          <button onClick={onCancel} className="flex-1 py-3.5 text-[14px] font-medium text-zinc-500 border-r border-zinc-100">취소</button>
+          <button onClick={onConfirm} disabled={isPending} className="flex-1 py-3.5 text-[14px] font-semibold text-red-500 disabled:opacity-50">
             {isPending ? '삭제 중...' : '삭제'}
           </button>
         </div>
@@ -85,82 +77,90 @@ export default function NoticeDetailPage() {
   const isLeader = myMembership?.memRole === 'L' && myMembership?.memState === 'A';
 
   const deleteMutation = useMutation({
-    mutationFn: async () => {
-      await api.delete(`/api/notices/${noticeId}`);
-    },
+    mutationFn: () => api.delete(`/api/notices/${noticeId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notices', id] });
       router.push(`/${id}/notices`);
     },
-    onError: (error: any) => {
-      alert(error?.response?.data?.message || '삭제에 실패했습니다.');
-    },
+    onError: (error: any) => alert(error?.response?.data?.message || '삭제에 실패했습니다.'),
   });
 
-
   if (isLoading) {
-    return <div className="text-center py-20 text-zinc-500 text-sm">불러오는 중...</div>;
+    return (
+      <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 flex items-center justify-center">
+        <p className="text-[13px] text-zinc-400">불러오는 중...</p>
+      </div>
+    );
   }
 
   if (!notice) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3">
+      <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 flex flex-col items-center justify-center gap-3">
         <p className="text-[14px] text-zinc-400">공지를 찾을 수 없습니다.</p>
-        <button onClick={() => router.back()} className="text-[13px] text-blue-500">돌아가기</button>
+        <button onClick={() => router.back()} className="text-[13px] text-[#3B3EFF]">돌아가기</button>
       </div>
     );
   }
 
   return (
-    <div className="pt-5 px-1">
-      {/* 제목 */}
-      <div className="pb-5 border-b border-zinc-100">
-        {notice.notiFix === 'Y' && (
-          <p className="text-[11px] font-medium text-zinc-400 mb-2">고정됨</p>
-        )}
+    <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-3">
+
+      {/* 헤더 카드 */}
+      <div className="bg-white rounded-xl p-4">
+        {/* 배지 */}
+        <div className="flex gap-1.5 mb-2 flex-wrap">
+          {notice.notiRequired === 'Y' && (
+            <span className="text-[10px] font-semibold text-white bg-[#3B3EFF] rounded-full px-2 py-0.5">필독</span>
+          )}
+          {notice.notiFix === 'Y' && (
+            <span className="text-[10px] font-semibold text-[#3B3EFF] bg-[#EBEBFF] rounded-full px-2 py-0.5">고정</span>
+          )}
+        </div>
+
+        {/* 제목 + 수정/삭제 버튼 */}
         <div className="flex items-start justify-between gap-3">
-          <h1 className="text-[18px] font-bold text-zinc-900 break-words flex-1">{notice.notiTitle}</h1>
+          <h1 className="text-[18px] font-bold text-zinc-900 break-words flex-1 leading-snug">{notice.notiTitle}</h1>
           {isLeader && (
-            <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => router.push(`/${id}/notices/${noticeId}/edit`)}
-                className="text-[13px] font-medium text-zinc-500 border border-zinc-200 rounded-lg px-3 py-1"
+                className="text-[12px] font-medium text-zinc-500 border border-zinc-200 rounded-lg px-2.5 py-1"
               >
                 수정
               </button>
               <button
                 onClick={() => setDeleteOpen(true)}
-                className="text-[13px] font-medium text-zinc-500 border border-zinc-200 rounded-lg px-3 py-1"
+                className="text-[12px] font-medium text-red-400 border border-red-100 rounded-lg px-2.5 py-1"
               >
                 삭제
               </button>
             </div>
           )}
         </div>
+
+        {/* 날짜 · 작성자 */}
+        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-zinc-100">
+          <div className="flex items-center gap-1.5">
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" strokeWidth={2}>
+              <rect x="3" y="4" width="18" height="18" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16 2v4M8 2v4M3 10h18" />
+            </svg>
+            <span className="text-[12px] text-zinc-400">{notice.regDtm.split(' ')[0]}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            <span className="text-[12px] text-zinc-400">모임장</span>
+          </div>
+        </div>
       </div>
 
-      {/* 날짜 · 작성자 */}
-      <div className="flex items-center gap-4 py-4 border-b border-zinc-100">
-        <div className="flex items-center gap-1.5">
-          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" strokeWidth={2}>
-            <rect x="3" y="4" width="18" height="18" rx="2" strokeLinecap="round" strokeLinejoin="round" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16 2v4M8 2v4M3 10h18" />
-          </svg>
-          <span className="text-[12px] text-zinc-400">{notice.regDtm}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
-          <span className="text-[12px] text-zinc-400">모임장</span>
-        </div>
-      </div>
-
-      {/* 내용 */}
-      <div className="pt-5">
+      {/* 내용 카드 */}
+      <div className="bg-white rounded-xl p-4">
         {notice.notiContent?.split('\n').map((line, i) => (
-          <p key={i} className="text-[14px] text-zinc-700 leading-relaxed mb-1">{line}</p>
+          <p key={i} className="text-[14px] text-zinc-700 leading-relaxed min-h-[1.5em]">{line}</p>
         ))}
       </div>
 

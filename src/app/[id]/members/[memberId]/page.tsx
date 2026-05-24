@@ -99,7 +99,7 @@ function EditModal({
               {uploading ? '업로드 중...' : '+ 새 이미지 업로드'}
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,.heic,.heif"
                 className="hidden"
                 disabled={uploading}
                 onChange={handleUpload}

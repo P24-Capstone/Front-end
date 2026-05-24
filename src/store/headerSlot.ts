@@ -11,6 +11,7 @@ interface EditSlot {
 interface PageHeader {
   title: string;
   hideHamburger: boolean;
+  onBack?: () => void;
 }
 
 interface HeaderSlotStore {

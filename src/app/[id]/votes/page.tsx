@@ -59,7 +59,7 @@ function DeleteVotePopup({ title, onConfirm, onCancel, isPending }: {
           </div>
           <p className="text-[15px] font-bold text-zinc-900 mb-1">투표를 삭제할까요?</p>
           <p className="text-[12px] text-zinc-400 leading-relaxed">
-            <span className="font-medium text-zinc-600">"{title}"</span><br />삭제 후 복구할 수 없어요.
+            <span className="font-medium text-zinc-600">&ldquo;{title}&rdquo;</span><br />삭제 후 복구할 수 없어요.
           </p>
         </div>
         <div className="flex border-t border-zinc-100">

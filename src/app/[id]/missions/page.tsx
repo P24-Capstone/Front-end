@@ -71,7 +71,7 @@ function DeleteMissionPopup({ title, onConfirm, onCancel, isPending }: {
           </div>
           <p className="text-[15px] font-bold text-zinc-900 mb-1">미션을 삭제할까요?</p>
           <p className="text-[12px] text-zinc-400 leading-relaxed">
-            <span className="font-medium text-zinc-600">"{title}"</span><br />
+            <span className="font-medium text-zinc-600">&ldquo;{title}&rdquo;</span><br />
             모든 인증 내역도 함께 삭제됩니다.
           </p>
         </div>

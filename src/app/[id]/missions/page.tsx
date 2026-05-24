@@ -334,24 +334,8 @@ export default function MissionsPage() {
           <div className="fixed inset-0 z-40" onClick={() => setShowPopup(false)} />
           <div className="fixed z-50 bg-white rounded-xl shadow-xl w-[180px] overflow-hidden border border-zinc-100"
             style={{ bottom: 'calc(80px + 56px)', right: 'calc(50% - 195px + 16px)' }}>
-            <button onClick={() => { setShowPopup(false); router.push(`/${id}/missions/new?kind=free`); }}
+            <button onClick={() => { setShowPopup(false); router.push(`/${id}/missions/new`); }}
               className="w-full flex items-center gap-2.5 px-4 py-3 active:bg-zinc-50 transition-colors">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              <span className="text-[13px] font-semibold text-zinc-900">자유형식 미션</span>
-            </button>
-            <div className="h-px bg-zinc-100" />
-            <button onClick={() => { setShowPopup(false); router.push(`/${id}/missions/new?kind=form`); }}
-              className="w-full flex items-center gap-2.5 px-4 py-3 active:bg-zinc-50 transition-colors">
-              <div className="relative w-[18px] h-[18px] flex items-center justify-center">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="8" r="5" />
-                  <path d="M3 21v-1a9 9 0 0 1 9-9h0a9 9 0 0 1 9 9v1" />
-                </svg>
-                <span className="absolute bottom-0 right-0 text-[6px] font-black leading-none bg-white text-zinc-800">AI</span>
-              </div>
-              <span className="text-[13px] font-semibold text-zinc-900">자동 폼 미션</span>
             </button>
           </div>
         </>

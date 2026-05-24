@@ -83,7 +83,7 @@ export default function MyPageEditPage() {
       setPreview(imgFileKey);
       queryClient.invalidateQueries({ queryKey: ['me', 'images'] });
     } catch {
-      alert('이미지 업로드에 실패했습니다.');
+      alert('이미지 업로드에 실패했습니다. 1MB 이하 이미지만 업로드 가능합니다.');
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';

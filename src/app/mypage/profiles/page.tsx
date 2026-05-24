@@ -69,7 +69,7 @@ function EditModal({ profile, onClose, onSaved }: { profile: Profile; onClose: (
       setPreview(imgFileKey);
       setPendingImgKey(imgFileKey);
     } catch {
-      alert('이미지 업로드에 실패했습니다.');
+      alert('이미지 업로드에 실패했습니다. 1MB 이하 이미지만 업로드 가능합니다.');
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';

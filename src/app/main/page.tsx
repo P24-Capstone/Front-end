@@ -183,7 +183,7 @@ function JoinByCodeModal({ onClose, onSuccess }: { onClose: () => void, onSucces
       setSelectedImgId(newImg.imgId);
       refetchImages();
     } catch {
-      alert('이미지 업로드에 실패했습니다.');
+      alert('이미지 업로드에 실패했습니다. 1MB 이하 이미지만 업로드 가능합니다.');
     } finally {
       setUploading(false);
       e.target.value = '';

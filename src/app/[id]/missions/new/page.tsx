@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useHeaderSlotStore } from '@/store/headerSlot';
@@ -16,12 +16,18 @@ interface MemberResponse {
   imgFileKey: string | null;
 }
 
-export default function MissionNewPage() {
-  const router = useRouter();
-  const { id } = useParams<{ id: string }>();
+interface UploadedFile {
+  name: string;   // 원본 파일명 (UI 표시용)
+  url: string;    // S3 URL (서버 전송용)
+}
 
+export default function MissionNewPage() {
+  const router       = useRouter();
+  const { id }       = useParams<{ id: string }>();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { setPageHeader } = useHeaderSlotStore();
 
+  /* ── 멤버 목록 ── */
   const { data: members, isLoading: membersLoading } = useQuery({
     queryKey: ['members', id],
     queryFn: async () => {
@@ -31,36 +37,80 @@ export default function MissionNewPage() {
     enabled: !!id,
   });
 
-  const [title, setTitle] = useState('');
-  const [scope, setScope] = useState<'공통' | '개인'>('공통');
+  /* ── 폼 상태 ── */
+  const [title,            setTitle]            = useState('');
+  const [scope,            setScope]            = useState<'공통' | '개인'>('공통');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [content, setContent] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [startDate,        setStartDate]        = useState('');
+  const [endDate,          setEndDate]          = useState('');
+  const [content,          setContent]          = useState('');
+  const [verifyPrompt,     setVerifyPrompt]     = useState('');
+  const [uploadedFiles,    setUploadedFiles]    = useState<UploadedFile[]>([]);
+  const [uploading,        setUploading]        = useState(false);
+  const [isSubmitting,     setIsSubmitting]     = useState(false);
 
   useEffect(() => {
-    setPageHeader({
-      title: '미션 생성',
-      hideHamburger: true,
-    });
+    setPageHeader({ title: '미션 생성', hideHamburger: true });
     return () => setPageHeader(null);
   }, [setPageHeader]);
 
-  const canSubmit = title.trim() && startDate && endDate && content.trim() && (scope === '공통' || !!selectedMemberId);
+  const canSubmit =
+    title.trim() &&
+    startDate &&
+    endDate &&
+    content.trim() &&
+    !uploading &&
+    (scope === '공통' || !!selectedMemberId);
 
+  /* ── 파일 선택 → 즉시 S3 업로드 ── */
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+
+    // 이미 업로드된 파일 포함 최대 5개 제한
+    const remaining = 5 - uploadedFiles.length;
+    const targets   = files.slice(0, remaining);
+
+    setUploading(true);
+    try {
+      const results = await Promise.all(
+        targets.map(async (file) => {
+          const form = new FormData();
+          form.append('file', file);
+          const { data } = await api.post('/api/files/upload?type=mission', form, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          return { name: file.name, url: data.data as string };
+        })
+      );
+      setUploadedFiles((prev) => [...prev, ...results]);
+    } catch {
+      alert('파일 업로드에 실패했습니다. 다시 시도해 주세요.');
+    } finally {
+      setUploading(false);
+      // input 초기화 (같은 파일 재선택 허용)
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeFile = (idx: number) =>
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== idx));
+
+  /* ── 등록 ── */
   const handleSubmit = async () => {
     if (!canSubmit || isSubmitting) return;
     setIsSubmitting(true);
     try {
       await api.post('/api/missions', {
-        missionTitle: title.trim(),
-        missionContent: content.trim(),
-        missionType: scope === '개인' ? 'P' : 'A',
-        verifyPrompt: null,
+        missionTitle:    title.trim(),
+        missionContent:  content.trim(),
+        missionType:     scope === '개인' ? 'P' : 'A',
+        verifyPrompt:    verifyPrompt.trim() || null,
         missionStartDtm: `${startDate} 00:00:00`,
-        missionEndDtm: `${endDate} 23:59:59`,
-        teamId: id,
+        missionEndDtm:   `${endDate} 23:59:59`,
+        teamId:          id,
+        memIds:          scope === '개인' && selectedMemberId ? [selectedMemberId] : [],
+        fileKeys:        uploadedFiles.map((f) => f.url),
       });
       router.back();
     } catch (err) {
@@ -76,6 +126,7 @@ export default function MissionNewPage() {
 
       {/* 기본 정보 카드 */}
       <div className="bg-white rounded-xl p-4 flex flex-col gap-4">
+
         {/* 미션명 */}
         <div>
           <label className="block text-[13px] font-medium text-zinc-500 mb-1.5">미션명</label>
@@ -96,13 +147,16 @@ export default function MissionNewPage() {
                 key={s}
                 onClick={() => { setScope(s); setSelectedMemberId(null); }}
                 className={`flex-1 py-2.5 rounded-lg border text-[14px] font-medium transition-colors ${
-                  scope === s ? 'bg-[#3B3EFF] border-[#3B3EFF] text-white' : 'border-zinc-200 text-zinc-400 bg-white'
+                  scope === s
+                    ? 'bg-[#3B3EFF] border-[#3B3EFF] text-white'
+                    : 'border-zinc-200 text-zinc-400 bg-white'
                 }`}
               >
                 {s}
               </button>
             ))}
           </div>
+
           {scope === '개인' && (
             <div className="flex flex-col gap-2">
               <p className="text-[12px] text-zinc-400">부여할 멤버를 선택해주세요.</p>
@@ -116,7 +170,9 @@ export default function MissionNewPage() {
                     key={mem.memId}
                     onClick={() => setSelectedMemberId(mem.memId)}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
-                      selectedMemberId === mem.memId ? 'border-[#3B3EFF] bg-[#EBEBFF]' : 'border-zinc-200 bg-white'
+                      selectedMemberId === mem.memId
+                        ? 'border-[#3B3EFF] bg-[#EBEBFF]'
+                        : 'border-zinc-200 bg-white'
                     }`}
                   >
                     <div className="w-8 h-8 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0 overflow-hidden">
@@ -176,6 +232,82 @@ export default function MissionNewPage() {
           value={content}
           onChange={(e) => setContent(e.target.value)}
         />
+      </div>
+
+      {/* AI 인증 조건 카드 */}
+      <div className="bg-white rounded-xl p-4">
+        <label className="block text-[13px] font-medium text-zinc-500 mb-1.5">
+          AI 인증 조건 <span className="text-zinc-300 font-normal">(선택)</span>
+        </label>
+        <textarea
+          className={`${INPUT_CLS} resize-none h-20`}
+          placeholder="예) 책 표지와 본인 얼굴이 함께 나온 사진이어야 합니다."
+          value={verifyPrompt}
+          onChange={(e) => setVerifyPrompt(e.target.value)}
+        />
+        <p className="text-[11px] text-zinc-400 mt-1.5">
+          입력하지 않으면 AI가 미션 내용을 기준으로 자동 판단합니다.
+        </p>
+      </div>
+
+      {/* 파일 첨부 카드 */}
+      <div className="bg-white rounded-xl px-4 py-3.5 flex flex-col gap-3">
+        {/* 숨긴 파일 input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,.heic,.heif"
+          multiple
+          className="hidden"
+          onChange={handleFileChange}
+        />
+
+        {/* 첨부 버튼 */}
+        <button
+          type="button"
+          disabled={uploading || uploadedFiles.length >= 5}
+          onClick={() => fileInputRef.current?.click()}
+          className="flex items-center gap-3 text-zinc-400 active:text-zinc-600 transition-colors w-full disabled:opacity-40"
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+          </svg>
+          <span className="text-[14px]">
+            {uploading ? '업로드 중...' : '파일 첨부 (이미지, 최대 5개)'}
+          </span>
+          {uploadedFiles.length > 0 && (
+            <span className="ml-auto text-[12px] font-medium text-[#3B3EFF]">
+              {uploadedFiles.length}/5
+            </span>
+          )}
+        </button>
+
+        {/* 첨부된 파일 목록 */}
+        {uploadedFiles.length > 0 && (
+          <ul className="flex flex-col gap-2">
+            {uploadedFiles.map((file, i) => (
+              <li key={i} className="flex items-center gap-2 bg-zinc-50 rounded-lg px-3 py-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+                <span className="flex-1 min-w-0 text-[13px] text-zinc-700 truncate">{file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeFile(i)}
+                  className="shrink-0 text-zinc-400 active:text-zinc-600 p-0.5"
+                  aria-label="파일 제거"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* 등록 버튼 */}

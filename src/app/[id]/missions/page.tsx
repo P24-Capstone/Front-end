@@ -2,111 +2,115 @@
 
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import api from '@/lib/api';
 
 type ScopeTab = '전체' | '공통' | '개인';
 type LeaderTab = '공통' | '개인';
 type StatusFilter = '전체' | '진행 중' | '완료';
+type UserStatus = 'available' | 'pending' | 'completed' | 'failed';
 
 interface MemberMe { memRole: string; memState: string; }
 
-interface Mission {
-  id: string;
-  scope: '공통' | '개인';
-  authType: 'AI인증' | '수동인증';
-  title: string;
-  subtitle: string;
-  status: '가능' | '대기' | '실패' | '완료';
-  deadline: string | null;
-  kind: '폼미션' | '자유미션';
-  submitCount?: number;
+interface MissionData {
+  missionId: number;
+  missionTitle: string;
+  missionContent: string;
+  missionType: string; // 'A'(공통) | 'P'(개인)
+  verifyPrompt: string;
+  missionStartDtm: string;
+  missionEndDtm: string;
+  teamId: string;
 }
-
-const MOCK_MISSIONS: Mission[] = [
-  { id: '1', scope: '공통', authType: 'AI인증',   title: '한강, 채식주의자 독서인증!', subtitle: '책 사진 찍고 인증하기', status: '가능', deadline: '1시간', kind: '폼미션',  submitCount: 3 },
-  { id: '2', scope: '개인', authType: '수동인증', title: '독서 후 감상문 작성하기!',   subtitle: '감상문 파일 업로드',    status: '대기', deadline: '30분',  kind: '자유미션', submitCount: 1 },
-  { id: '3', scope: '공통', authType: '수동인증', title: '독서 후 감상문 작성하기!',   subtitle: '감상문 파일 업로드',    status: '가능', deadline: '3일',   kind: '폼미션',  submitCount: 5 },
-  { id: '4', scope: '개인', authType: 'AI인증',   title: '카프카, 변신 독서인증!',     subtitle: '책 사진 찍고 인증하기', status: '대기', deadline: null,   kind: '자유미션', submitCount: 2 },
-  { id: '5', scope: '개인', authType: '수동인증', title: '독서 후 감상문 작성하기!',   subtitle: '감상문 파일 업로드',    status: '실패', deadline: null,   kind: '자유미션', submitCount: 0 },
-  { id: '6', scope: '개인', authType: '수동인증', title: '독서 후 감상문 작성하기!',   subtitle: '감상문 파일 업로드',    status: '실패', deadline: null,   kind: '폼미션',  submitCount: 0 },
-  { id: '7', scope: '개인', authType: 'AI인증',   title: '카프카, 변신 독서인증!',     subtitle: '책 사진 찍고 인증하기', status: '완료', deadline: null,   kind: '자유미션', submitCount: 3 },
-  { id: '8', scope: '공통', authType: '수동인증', title: '한강, 채식주의자 독서인증!', subtitle: '책 사진 찍고 인증하기', status: '완료', deadline: null,  kind: '폼미션',  submitCount: 6 },
-];
-
-const MOCK_MEMBERS = [
-  { id: 'M1', name: '김철수', initial: '김' },
-  { id: 'M2', name: '이영희', initial: '이' },
-  { id: 'M3', name: '박지수', initial: '박' },
-];
 
 const SCOPE_COLOR: Record<string, string> = { 공통: '#FF9E6A', 개인: '#E5638C' };
-const AUTH_COLOR: Record<string, string> = { 'AI인증': '#3B3EFF', '수동인증': '#31DBD5' };
 
-function deadlineColor(deadline: string | null): string {
-  if (!deadline) return 'text-zinc-400';
-  if (deadline.includes('분') || deadline.includes('시간')) return 'text-[#f97316]';
-  const days = Number(deadline.replace(/[^0-9]/g, ''));
-  return days <= 3 ? 'text-[#f97316]' : 'text-[#3B3EFF]';
+function getScope(missionType: string): '공통' | '개인' {
+  return missionType === 'P' ? '개인' : '공통';
 }
 
-function Badges({ scope, authType }: { scope: string; authType: string }) {
+function getDeadlineText(endDtm: string): string | null {
+  const end = new Date(endDtm.replace(' ', 'T'));
+  const diff = end.getTime() - Date.now();
+  if (diff <= 0) return null;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}분`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}시간`;
+  return `${Math.floor(hours / 24)}일`;
+}
+
+function deadlineColor(dl: string): string {
+  if (dl.includes('분') || dl.includes('시간')) return 'text-[#f97316]';
+  return Number(dl.replace(/\D/g, '')) <= 3 ? 'text-[#f97316]' : 'text-[#3B3EFF]';
+}
+
+function Badges({ scope }: { scope: '공통' | '개인' }) {
   return (
     <div className="flex gap-1 mb-1">
       <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: SCOPE_COLOR[scope] }}>{scope}</span>
-      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: AUTH_COLOR[authType] }}>{authType}</span>
+      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white bg-[#3B3EFF]">AI인증</span>
     </div>
   );
 }
 
-function MissionCard({ m, onVerify, onViewPending, onViewCompleted, onViewFailed }: {
-  m: Mission;
-  onVerify?: () => void;
-  onViewPending?: () => void;
-  onViewCompleted?: () => void;
-  onViewFailed?: () => void;
+function MemberMissionCard({ m, deadline, userStatus, onVerify, onViewPending }: {
+  m: MissionData;
+  deadline: string | null;
+  userStatus: UserStatus;
+  onVerify: () => void;
+  onViewPending: () => void;
 }) {
-  const isDone = m.status === '실패' || m.status === '완료';
+  const scope = getScope(m.missionType);
+  const isDone = userStatus === 'completed';
   return (
     <div className="bg-white rounded-lg px-4 py-3 flex items-center gap-3">
       <div className={`w-10 h-10 rounded-full shrink-0 ${isDone ? 'bg-zinc-300' : 'bg-zinc-200'}`} />
       <div className="flex-1 min-w-0">
-        <Badges scope={m.scope} authType={m.authType} />
-        <p className="text-[12px] font-medium text-zinc-800 leading-tight">{m.title}</p>
-        <p className="text-[11px] text-zinc-400 mt-1">{m.subtitle}</p>
+        <Badges scope={scope} />
+        <p className="text-[12px] font-medium text-zinc-800 leading-tight">{m.missionTitle}</p>
+        <p className="text-[11px] text-zinc-400 mt-1 truncate">{m.missionContent}</p>
       </div>
       <div className="shrink-0 flex flex-col items-end gap-2">
-        {m.status === '가능' && (
+        {userStatus === 'available' && (
           <>
-            <p className="text-[12px]"><span className="text-zinc-800">마감까지 </span><span className={deadlineColor(m.deadline)}>{m.deadline}</span></p>
-            <button onClick={onVerify} className="text-[12px] font-semibold text-white bg-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-              인증하기
-            </button>
+            {deadline
+              ? <p className="text-[12px]"><span className="text-zinc-800">마감까지 </span><span className={deadlineColor(deadline)}>{deadline}</span></p>
+              : <span className="text-[12px] text-zinc-400">마감</span>
+            }
+            {deadline && (
+              <button onClick={onVerify} className="text-[12px] font-semibold text-white bg-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                인증하기
+              </button>
+            )}
           </>
         )}
-        {m.status === '대기' && (
+        {userStatus === 'pending' && (
           <>
-            <p className="text-[12px]">{m.deadline ? <><span className="text-zinc-800">마감까지 </span><span className={deadlineColor(m.deadline)}>{m.deadline}</span></> : <span className="text-zinc-400">마감</span>}</p>
+            {deadline
+              ? <p className="text-[12px]"><span className="text-zinc-800">마감까지 </span><span className={deadlineColor(deadline)}>{deadline}</span></p>
+              : <span className="text-[12px] text-zinc-400">마감</span>
+            }
             <button onClick={onViewPending} className="text-[12px] font-semibold text-white bg-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
               승인 대기
             </button>
           </>
         )}
-        {m.status === '실패' && (
+        {userStatus === 'failed' && (
           <>
             <span className="text-[12px] text-zinc-400">마감</span>
-            <button onClick={onViewFailed} className="text-[12px] font-semibold text-[#3B3EFF] bg-white border border-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
+            <button onClick={onViewPending} className="text-[12px] font-semibold text-[#3B3EFF] bg-white border border-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
               인증 실패
             </button>
           </>
         )}
-        {m.status === '완료' && (
+        {userStatus === 'completed' && (
           <>
             <span className="text-[12px] text-zinc-400">마감</span>
-            <button onClick={onViewCompleted} className="text-[12px] font-medium text-zinc-400 bg-zinc-100 rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
+            <button onClick={onViewPending} className="text-[12px] font-medium text-zinc-400 bg-zinc-100 rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg>
               인증 완료
             </button>
@@ -117,22 +121,24 @@ function MissionCard({ m, onVerify, onViewPending, onViewCompleted, onViewFailed
   );
 }
 
-function LeaderCard({ m, onViewSubmissions, showCount = true }: { m: Mission; onViewSubmissions?: () => void; showCount?: boolean }) {
+function LeaderCard({ m, onViewSubmissions }: { m: MissionData; onViewSubmissions: () => void }) {
+  const scope = getScope(m.missionType);
+  const deadline = getDeadlineText(m.missionEndDtm);
   return (
     <div className="bg-white rounded-lg px-4 py-3 flex items-center gap-3">
       <div className="w-10 h-10 rounded-full bg-zinc-200 shrink-0" />
       <div className="flex-1 min-w-0">
-        <Badges scope={m.scope} authType={m.authType} />
-        <p className="text-[12px] font-medium text-zinc-800 leading-tight">{m.title}</p>
-        <p className="text-[11px] text-zinc-400 mt-1">{m.subtitle}</p>
+        <Badges scope={scope} />
+        <p className="text-[12px] font-medium text-zinc-800 leading-tight">{m.missionTitle}</p>
+        <p className="text-[11px] text-zinc-400 mt-1 truncate">{m.missionContent}</p>
       </div>
       <div className="shrink-0 flex flex-col items-end gap-2">
-        {m.status === '완료' || !m.deadline
-          ? <span className="text-[12px] text-zinc-400">마감</span>
-          : <p className="text-[12px]"><span className="text-zinc-800">마감까지 </span><span className={deadlineColor(m.deadline)}>{m.deadline}</span></p>
+        {deadline
+          ? <p className="text-[12px]"><span className="text-zinc-800">마감까지 </span><span className={deadlineColor(deadline)}>{deadline}</span></p>
+          : <span className="text-[12px] text-zinc-400">마감</span>
         }
         <button onClick={onViewSubmissions} className="text-[12px] font-semibold text-white bg-[#3B3EFF] rounded-lg px-3.5 py-1.5 whitespace-nowrap">
-          제출 확인{showCount ? ` ${m.submitCount ?? 0}` : ''}
+          제출 확인
         </button>
       </div>
     </div>
@@ -160,7 +166,6 @@ export default function MissionsPage() {
   const [leaderTab, setLeaderTab] = useState<LeaderTab>('공통');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('전체');
   const [showPopup, setShowPopup] = useState(false);
-  const [devLeader, setDevLeader] = useState<boolean | null>(null);
 
   const { data: myMember } = useQuery<MemberMe>({
     queryKey: ['memberMe', id],
@@ -172,44 +177,79 @@ export default function MissionsPage() {
   });
 
   const isLeader = myMember?.memRole === 'L' && myMember?.memState === 'A';
-  const showLeader = devLeader !== null ? devLeader : isLeader;
 
-  const mFiltered = MOCK_MISSIONS.filter((m) => {
-    if (scopeTab === '공통' && m.scope !== '공통') return false;
-    if (scopeTab === '개인' && m.scope !== '개인') return false;
-    if (statusFilter === '진행 중' && m.status !== '가능' && m.status !== '대기' && m.status !== '실패') return false;
-    if (statusFilter === '완료' && m.status !== '완료') return false;
-    return true;
+  const { data: missions = [], isLoading: missionsLoading } = useQuery<MissionData[]>({
+    queryKey: ['missions', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/missions?teamId=${id}`);
+      return data.data ?? [];
+    },
+    enabled: !!id,
   });
 
-  const applyStatus = (list: Mission[]) => list.filter((m) => {
-    if (statusFilter === '진행 중') return m.status === '가능' || m.status === '대기' || m.status === '실패';
-    if (statusFilter === '완료') return m.status === '완료';
-    return true;
+  // Fetch each mission's submission status in parallel (member view only)
+  const submissionQueries = useQueries({
+    queries: missions.map((m) => ({
+      queryKey: ['mySubmission', m.missionId],
+      queryFn: async (): Promise<{ verifyState: string } | null> => {
+        try {
+          const { data } = await api.get(`/api/missions/${m.missionId}/submissions/me`);
+          return data.data ?? null;
+        } catch {
+          return null;
+        }
+      },
+      retry: false,
+      enabled: !isLeader && !!id && missions.length > 0,
+    })),
   });
 
-  const lCommon = applyStatus(MOCK_MISSIONS.filter((m) => m.scope === '공통'));
-  const lPersonal = applyStatus(MOCK_MISSIONS.filter((m) => m.scope === '개인')).slice(0, 3);
+  const getUserStatus = (idx: number): UserStatus => {
+    const q = submissionQueries[idx];
+    if (!q || q.isLoading || !q.data) return 'available';
+    const state = q.data.verifyState;
+    if (state === 'A' || state === 'F') return 'completed';
+    if (state === 'R') return 'failed';
+    return 'pending';
+  };
 
-  const submissionsHref = (m: Mission) =>
-    `/${id}/missions/${m.id}/submissions?authType=${encodeURIComponent(m.authType)}&scope=${encodeURIComponent(m.scope)}&title=${encodeURIComponent(m.title)}&subtitle=${encodeURIComponent(m.subtitle)}`;
-  const submissionDetailHref = (m: Mission, memberName: string) =>
-    `/${id}/missions/${m.id}/submissions/1?authType=${encodeURIComponent(m.authType)}&scope=${encodeURIComponent(m.scope)}&title=${encodeURIComponent(m.title)}&subtitle=${encodeURIComponent(m.subtitle)}&memberName=${encodeURIComponent(memberName)}&aiResult=`;
-  const verifyHref = (m: Mission) =>
-    `/${id}/missions/${m.id}/verify?authType=${encodeURIComponent(m.authType)}&scope=${encodeURIComponent(m.scope)}&title=${encodeURIComponent(m.title)}&subtitle=${encodeURIComponent(m.subtitle)}`;
-  const pendingHref = (m: Mission, status = '') =>
-    `/${id}/missions/${m.id}/pending?${status ? `status=${status}&` : ''}authType=${encodeURIComponent(m.authType)}&scope=${encodeURIComponent(m.scope)}&title=${encodeURIComponent(m.title)}&subtitle=${encodeURIComponent(m.subtitle)}`;
+  const missionParams = (m: MissionData) =>
+    `?authType=${encodeURIComponent('AI인증')}&scope=${encodeURIComponent(getScope(m.missionType))}&title=${encodeURIComponent(m.missionTitle)}&subtitle=${encodeURIComponent(m.missionContent.substring(0, 50))}`;
+
+  // Member view: filter by scope tab + status filter
+  const memberMissions = missions
+    .map((m, idx) => ({ m, idx }))
+    .filter(({ m, idx }) => {
+      const scope = getScope(m.missionType);
+      if (scopeTab !== '전체' && scope !== scopeTab) return false;
+      const dl = getDeadlineText(m.missionEndDtm);
+      const userStatus = getUserStatus(idx);
+      if (statusFilter === '진행 중') return (!!dl && userStatus !== 'completed') || userStatus === 'pending';
+      if (statusFilter === '완료') return userStatus === 'completed';
+      return true;
+    });
+
+  // Leader view: filter by mission type + status filter (deadline-based)
+  const leaderMissions = (type: '공통' | '개인') =>
+    missions.filter((m) => {
+      if (getScope(m.missionType) !== type) return false;
+      const dl = getDeadlineText(m.missionEndDtm);
+      if (statusFilter === '진행 중') return !!dl;
+      if (statusFilter === '완료') return !dl;
+      return true;
+    });
+
+  if (missionsLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center py-20">
+        <p className="text-[13px] text-zinc-400">불러오는 중...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-full">
-      {/* 개발용 뷰 토글 */}
-      <div className="flex items-center gap-2 -mx-4 px-4 py-1.5 bg-yellow-50 border-b border-yellow-200">
-        <span className="text-[11px] text-yellow-700 font-medium">개발용:</span>
-        <button onClick={() => setDevLeader(false)} className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium transition-colors ${devLeader === false ? 'bg-yellow-400 text-white' : 'text-yellow-600'}`}>멤버</button>
-        <button onClick={() => setDevLeader(true)} className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium transition-colors ${devLeader === true ? 'bg-yellow-400 text-white' : 'text-yellow-600'}`}>팀장</button>
-      </div>
-
-      {showLeader ? (
+      {isLeader ? (
         <>
           {/* 팀장: 공통/개인 탭 */}
           <div className="sticky top-0 z-10 bg-white -mx-4">
@@ -225,28 +265,16 @@ export default function MissionsPage() {
 
           <div className="flex-1 -mx-4 -mb-5 bg-zinc-100 px-4 pt-4 pb-24 space-y-3">
             <StatusBar value={statusFilter} onChange={setStatusFilter} />
-
-            {leaderTab === '공통' && (
-              lCommon.length === 0
-                ? <p className="text-center text-[13px] text-zinc-400 py-10">미션이 없습니다.</p>
-                : lCommon.map((m) => <LeaderCard key={m.id} m={m} onViewSubmissions={() => router.push(submissionsHref(m))} />)
-            )}
-
-            {leaderTab === '개인' && (
-              MOCK_MEMBERS.length === 0
-                ? <p className="text-center text-[13px] text-zinc-400 py-10">미션이 없습니다.</p>
-                : MOCK_MEMBERS.map((mem) => (
-                  <div key={mem.id} className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 mt-2">
-                      <div className="w-7 h-7 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
-                        <span className="text-[11px] font-bold text-white">{mem.initial}</span>
-                      </div>
-                      <span className="text-[13px] font-semibold text-zinc-800">{mem.name}</span>
-                    </div>
-                    {lPersonal.map((m) => <LeaderCard key={m.id} m={m} showCount={false} onViewSubmissions={() => router.push(submissionDetailHref(m, mem.name))} />)}
-                  </div>
-                ))
-            )}
+            {leaderMissions(leaderTab).length === 0
+              ? <p className="text-center text-[13px] text-zinc-400 py-10">미션이 없습니다.</p>
+              : leaderMissions(leaderTab).map((m) => (
+                <LeaderCard
+                  key={m.missionId}
+                  m={m}
+                  onViewSubmissions={() => router.push(`/${id}/missions/${m.missionId}/submissions${missionParams(m)}`)}
+                />
+              ))
+            }
           </div>
         </>
       ) : (
@@ -265,23 +293,30 @@ export default function MissionsPage() {
 
           <div className="flex-1 -mx-4 -mb-5 bg-zinc-100 px-4 pt-4 pb-24 space-y-3">
             <StatusBar value={statusFilter} onChange={setStatusFilter} />
-            {mFiltered.length === 0
+            {memberMissions.length === 0
               ? <p className="text-center text-[13px] text-zinc-400 py-10">미션이 없습니다.</p>
-              : mFiltered.map((m) => (
-                <MissionCard key={m.id} m={m}
-                  onVerify={() => router.push(verifyHref(m))}
-                  onViewPending={() => router.push(pendingHref(m))}
-                  onViewCompleted={() => router.push(pendingHref(m, 'completed'))}
-                  onViewFailed={() => router.push(pendingHref(m, 'failed'))}
-                />
-              ))
+              : memberMissions.map(({ m, idx }) => {
+                const deadline = getDeadlineText(m.missionEndDtm);
+                const userStatus = getUserStatus(idx);
+                const params = missionParams(m);
+                return (
+                  <MemberMissionCard
+                    key={m.missionId}
+                    m={m}
+                    deadline={deadline}
+                    userStatus={userStatus}
+                    onVerify={() => router.push(`/${id}/missions/${m.missionId}/verify${params}`)}
+                    onViewPending={() => router.push(`/${id}/missions/${m.missionId}/pending${params}`)}
+                  />
+                );
+              })
             }
           </div>
         </>
       )}
 
       {/* 팀장 전용 플로팅 버튼 */}
-      {showLeader && (
+      {isLeader && (
         <button
           onClick={() => setShowPopup(true)}
           className="fixed bottom-[80px] w-12 h-12 bg-[#3B3EFF] rounded-full flex items-center justify-center shadow-lg z-20"

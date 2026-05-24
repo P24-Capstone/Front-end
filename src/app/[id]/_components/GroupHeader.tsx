@@ -12,6 +12,7 @@ interface MemberMe {
   memNic: string;
   memRole: string;
   memState: string;
+  imgFileKey: string | null;
 }
 
 export default function GroupHeader() {
@@ -59,10 +60,17 @@ export default function GroupHeader() {
   };
 
   const handleBack = () => {
+    if (pageHeader?.onBack) {
+      pageHeader.onBack();
+      return;
+    }
     const parts = pathname.split('/').filter(Boolean);
-    const isDetailPage = parts.length >= 3; // e.g., /[id]/events/123
+    const isSubPage = pathname.includes('/new') || pathname.includes('/create') || pathname.includes('/info');
+    const isDetailPage = parts.length >= 3 && !isSubPage;
 
-    if (pathname.includes('/new') || pathname.includes('/create') || pathname.includes('/info') || isDetailPage) {
+    if (isDetailPage) {
+      router.push(`/${parts[0]}/${parts[1]}`);
+    } else if (isSubPage) {
       router.back();
     } else {
       router.push('/main');
@@ -126,8 +134,11 @@ export default function GroupHeader() {
 
             {/* 모임 내 프로필 */}
             <div className="flex items-center gap-2.5 px-3.5 py-3 border-b border-zinc-100">
-              <div className="w-8 h-8 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
-                <span className="text-[13px] font-bold text-white">{initial}</span>
+              <div className="w-8 h-8 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0 overflow-hidden">
+                {myMember?.imgFileKey
+                  ? <img src={myMember.imgFileKey} alt="프로필" className="w-full h-full object-cover" />
+                  : <span className="text-[13px] font-bold text-white">{initial}</span>
+                }
               </div>
               <p className="text-[13px] font-bold text-zinc-900 truncate">{myMember?.memNic ?? '...'}</p>
             </div>

@@ -36,6 +36,7 @@ export default function EventDetailPage() {
   const queryClient = useQueryClient();
 
   const [editing, setEditing] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -77,19 +78,30 @@ export default function EventDetailPage() {
   }
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      api.put(`/api/events/${eventId}`, {
+    mutationFn: () => {
+      const evtStartDt = startTime ? `${startDate} ${startTime}` : startDate;
+      const evtEndDt = endDate ? (endTime ? `${endDate} ${endTime}` : endDate) : null;
+      return api.put(`/api/events/${eventId}`, {
         teamId: id,
         evtTitle: title,
         evtContent: content,
         evtLocation: location,
-        evtStartDt: startTime ? `${startDate}T${startTime}:00` : startDate,
-        evtEndDt: endTime ? `${endDate}T${endTime}:00` : endDate,
-      }),
+        evtStartDt,
+        ...(evtEndDt && { evtEndDt }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event', eventId] });
       queryClient.invalidateQueries({ queryKey: ['events', id] });
       setEditing(false);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/api/events/${eventId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events', id] });
+      router.back();
     },
   });
 
@@ -123,7 +135,33 @@ export default function EventDetailPage() {
 
   return (
     <div className="pt-5 px-1">
-      {/* 제목 + 수정 버튼 */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/50">
+          <div className="bg-white rounded-2xl w-full max-w-[300px] p-6 shadow-xl">
+            <h3 className="text-[16px] font-bold text-zinc-900 text-center mb-2">일정 삭제</h3>
+            <p className="text-[13px] text-zinc-500 text-center mb-6">
+              일정을 삭제하면 복구할 수 없습니다.<br />정말 삭제하시겠습니까?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl text-[14px] font-medium text-zinc-600 border border-zinc-200"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+                className="flex-1 py-2.5 rounded-xl text-[14px] font-semibold text-white bg-red-500 disabled:opacity-60"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 제목 + 아이콘 */}
       <div className="flex items-start gap-2.5 pb-5 border-b border-zinc-100">
         <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#3B3EFF" strokeWidth={1.8} className="shrink-0 mt-0.5">
           <path strokeLinecap="round" strokeLinejoin="round"
@@ -139,27 +177,16 @@ export default function EventDetailPage() {
           <h1 className="flex-1 text-[18px] font-bold text-zinc-900 break-words">{event.evtTitle}</h1>
         )}
         {isLeader && !editing && (
-          <button
-            onClick={() => setEditing(true)}
-            className="text-[13px] font-medium text-zinc-500 border border-zinc-200 rounded-lg px-3 py-1 shrink-0"
-          >
-            수정
-          </button>
-        )}
-        {isLeader && editing && (
           <div className="flex gap-2 shrink-0">
-            <button
-              onClick={handleCancel}
-              className="text-[13px] font-medium text-zinc-500 border border-zinc-200 rounded-lg px-3 py-1"
-            >
-              취소
+            <button onClick={() => setEditing(true)} className="text-zinc-400 hover:text-[#3B3EFF] transition-colors">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
             </button>
-            <button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              className="text-[13px] font-semibold text-white bg-[#3B3EFF] rounded-lg px-3 py-1 disabled:opacity-60"
-            >
-              완료
+            <button onClick={() => setShowDeleteConfirm(true)} className="text-zinc-400 hover:text-red-400 transition-colors">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
             </button>
           </div>
         )}
@@ -208,7 +235,7 @@ export default function EventDetailPage() {
           ) : (
             <span className="text-[14px] text-zinc-700">
               {formatDate(event.evtStartDt)}
-              {event.evtStartDt !== event.evtEndDt && ` ~ ${formatDate(event.evtEndDt)}`}
+              {event.evtEndDt && event.evtStartDt !== event.evtEndDt && ` ~ ${formatDate(event.evtEndDt)}`}
             </span>
           )}
         </div>
@@ -248,6 +275,24 @@ export default function EventDetailPage() {
           ))
         )}
       </div>
+
+      {editing && (
+        <div className="flex gap-3 mt-8">
+          <button
+            onClick={handleCancel}
+            className="flex-1 py-3.5 rounded-xl text-[14px] font-semibold bg-zinc-100 text-zinc-600"
+          >
+            취소
+          </button>
+          <button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending || !title.trim() || !startDate}
+            className={`flex-1 py-3.5 rounded-xl text-[14px] font-semibold transition-colors ${!saveMutation.isPending && title.trim() && startDate ? 'bg-[#3B3EFF] text-white' : 'bg-zinc-200 text-zinc-400'}`}
+          >
+            {saveMutation.isPending ? '저장 중...' : '저장'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

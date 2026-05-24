@@ -14,7 +14,7 @@ export default function CreateEventPage() {
   const { setPageHeader } = useHeaderSlotStore();
 
   useEffect(() => {
-    setPageHeader({ title: '새 일정 등록하기', hideHamburger: true });
+    setPageHeader({ title: '일정 등록하기', hideHamburger: true });
     return () => setPageHeader(null);
   }, [setPageHeader]);
 
@@ -50,11 +50,11 @@ export default function CreateEventPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const startDt = formData.startTime
-      ? `${formData.startDate}`
+      ? `${formData.startDate} ${formData.startTime}`
       : formData.startDate;
     const endDt = formData.endDate
       ? formData.endTime
-        ? `${formData.endDate}`
+        ? `${formData.endDate} ${formData.endTime}`
         : formData.endDate
       : null;
 
@@ -78,7 +78,7 @@ export default function CreateEventPage() {
           <input
             type="text"
             required
-            placeholder="예) 첫 정기 모임"
+            placeholder="일정 제목을 적어주세요"
             className={inputCls}
             value={formData.evtTitle}
             onChange={(e) => setFormData({ ...formData, evtTitle: e.target.value })}
@@ -89,36 +89,52 @@ export default function CreateEventPage() {
           <label className="text-[13px] font-semibold text-zinc-800">장소</label>
           <input
             type="text"
-            placeholder="예) 스타벅스 홍대점, 온라인 (Zoom)"
+            placeholder="어디서 모일까요?"
             className={inputCls}
             value={formData.evtLocation}
             onChange={(e) => setFormData({ ...formData, evtLocation: e.target.value })}
           />
         </div>
 
-        {/* 시작 일자 */}
+        {/* 시작 */}
         <div className="space-y-1.5">
-          <label className="text-[13px] font-semibold text-zinc-800">시작 일자</label>
-          <input
-            type="date"
-            required
-            className={inputCls}
-            value={formData.startDate}
-            onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-          />
+          <label className="text-[13px] font-semibold text-zinc-800">시작</label>
+          <div className="flex gap-2">
+            <input
+              type="date"
+              required
+              className={inputCls}
+              value={formData.startDate}
+              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+            />
+            <input
+              type="time"
+              className="w-32 shrink-0 h-12 px-3 bg-zinc-50 border border-zinc-200 rounded-xl text-[14px] outline-none focus:border-[#3B3EFF] focus:bg-white transition-colors"
+              value={formData.startTime}
+              onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+            />
+          </div>
         </div>
 
-        {/* 종료 일자 (선택) */}
+        {/* 종료 (선택) */}
         <div className="space-y-1.5">
           <label className="text-[13px] font-semibold text-zinc-800">
-            종료 일자 <span className="text-[12px] font-normal text-zinc-400">(선택)</span>
+            종료 <span className="text-[12px] font-normal text-zinc-400">(선택)</span>
           </label>
-          <input
-            type="date"
-            className={inputCls}
-            value={formData.endDate}
-            onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-          />
+          <div className="flex gap-2">
+            <input
+              type="date"
+              className={inputCls}
+              value={formData.endDate}
+              onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+            />
+            <input
+              type="time"
+              className="w-32 shrink-0 h-12 px-3 bg-zinc-50 border border-zinc-200 rounded-xl text-[14px] outline-none focus:border-[#3B3EFF] focus:bg-white transition-colors"
+              value={formData.endTime}
+              onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+            />
+          </div>
         </div>
 
         <div className="space-y-1.5">

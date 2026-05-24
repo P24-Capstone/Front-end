@@ -1,25 +1,38 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, useParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { useHeaderSlotStore } from '@/store/headerSlot';
+import api from '@/lib/api';
 
 const INPUT_CLS = 'w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-[14px] text-zinc-800 placeholder:text-zinc-300 outline-none focus:border-[#3B3EFF] transition-colors bg-white';
 
-// TODO: 백엔드 연결 시 API로 교체
-const MOCK_MEMBERS = [
-  { id: 'M1', name: '김철수', initial: '김' },
-  { id: 'M2', name: '이영희', initial: '이' },
-  { id: 'M3', name: '박지수', initial: '박' },
-];
+interface MemberResponse {
+  memId: string;
+  memNic: string;
+  memRole: string;
+  memState: string;
+  imgFileKey: string | null;
+}
 
 export default function MissionNewPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { id } = useParams<{ id: string }>();
   const kind = searchParams.get('kind');
   const isForm = kind === 'form';
 
   const { setPageHeader } = useHeaderSlotStore();
+
+  const { data: members, isLoading: membersLoading } = useQuery({
+    queryKey: ['members', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/members?teamId=${id}`);
+      return (data.data as MemberResponse[]).filter((m) => m.memState === 'A');
+    },
+    enabled: !!id,
+  });
 
   const [title, setTitle] = useState('');
   const [scope, setScope] = useState<'공통' | '개인'>('공통');
@@ -32,7 +45,7 @@ export default function MissionNewPage() {
 
   useEffect(() => {
     setPageHeader({
-      title: `미션 생성 · ${isForm ? '자동 폼' : '자유형식'}`,
+      title: `미션 생성`,
       hideHamburger: true,
     });
     return () => setPageHeader(null);
@@ -75,25 +88,40 @@ export default function MissionNewPage() {
           {scope === '개인' && (
             <div className="flex flex-col gap-2">
               <p className="text-[12px] text-zinc-400">부여할 멤버를 선택해주세요.</p>
-              {MOCK_MEMBERS.map((mem) => (
-                <button
-                  key={mem.id}
-                  onClick={() => setSelectedMemberId(mem.id)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
-                    selectedMemberId === mem.id ? 'border-[#3B3EFF] bg-[#EBEBFF]' : 'border-zinc-200 bg-white'
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
-                    <span className="text-[12px] font-bold text-white">{mem.memNic?.[0] ?? '?'}</span>
-                  </div>
-                  <span className={`text-[14px] font-medium ${selectedMemberId === mem.id ? 'text-[#3B3EFF]' : 'text-zinc-800'}`}>{mem.name}</span>
-                  {selectedMemberId === mem.id && (
-                    <svg className="ml-auto" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#3B3EFF" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </button>
-              ))}
+              {membersLoading ? (
+                <p className="text-[12px] text-zinc-400 py-2">불러오는 중...</p>
+              ) : (members ?? []).length === 0 ? (
+                <p className="text-[12px] text-zinc-400 py-2">활동 중인 멤버가 없습니다.</p>
+              ) : (
+                (members ?? []).map((mem) => (
+                  <button
+                    key={mem.memId}
+                    onClick={() => setSelectedMemberId(mem.memId)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
+                      selectedMemberId === mem.memId ? 'border-[#3B3EFF] bg-[#EBEBFF]' : 'border-zinc-200 bg-white'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0 overflow-hidden">
+                      {mem.imgFileKey ? (
+                        <img src={mem.imgFileKey} alt="프로필" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-[12px] font-bold text-white">{mem.memNic?.[0] ?? '?'}</span>
+                      )}
+                    </div>
+                    <span className={`text-[14px] font-medium ${selectedMemberId === mem.memId ? 'text-[#3B3EFF]' : 'text-zinc-800'}`}>
+                      {mem.memNic}
+                    </span>
+                    {mem.memRole === 'L' && (
+                      <span className="text-[10px] font-semibold text-white bg-[#3B3EFF] rounded-full px-1.5 py-0.5">리더</span>
+                    )}
+                    {selectedMemberId === mem.memId && (
+                      <svg className="ml-auto shrink-0" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#3B3EFF" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                ))
+              )}
             </div>
           )}
         </div>
@@ -144,40 +172,6 @@ export default function MissionNewPage() {
             >
               <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${useAI ? 'left-[22px]' : 'left-0.5'}`} />
             </div>
-          </div>
-
-          {/* 폼 항목 카드 */}
-          <div className="bg-white rounded-xl p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <label className="text-[13px] font-medium text-zinc-500">폼미션 항목</label>
-              <div className="flex gap-1.5">
-                <button
-                  onClick={() => formItems.length > 1 && setFormItems(formItems.slice(0, -1))}
-                  className="w-7 h-7 rounded-full border border-zinc-300 flex items-center justify-center text-zinc-500 text-base leading-none"
-                >
-                  −
-                </button>
-                <button
-                  onClick={() => setFormItems([...formItems, ''])}
-                  className="w-7 h-7 rounded-full border border-zinc-300 flex items-center justify-center text-zinc-500 text-base leading-none"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-            {formItems.map((item, i) => (
-              <input
-                key={i}
-                className={INPUT_CLS}
-                placeholder={`항목 ${i + 1}`}
-                value={item}
-                onChange={(e) => {
-                  const next = [...formItems];
-                  next[i] = e.target.value;
-                  setFormItems(next);
-                }}
-              />
-            ))}
           </div>
 
           {/* 파일 첨부 카드 */}

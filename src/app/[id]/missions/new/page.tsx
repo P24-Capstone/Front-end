@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useHeaderSlotStore } from '@/store/headerSlot';
@@ -41,7 +41,8 @@ export default function MissionNewPage() {
   const [endDate, setEndDate] = useState('');
   const [content, setContent] = useState('');
   const [useAI, setUseAI] = useState(true);
-  const [formItems, setFormItems] = useState(['', '']);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setPageHeader({
@@ -51,7 +52,41 @@ export default function MissionNewPage() {
     return () => setPageHeader(null);
   }, [setPageHeader, isForm]);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const canSubmit = title.trim() && startDate && endDate && content.trim() && (scope === '공통' || !!selectedMemberId);
+
+  const handleSubmit = async () => {
+    if (!canSubmit || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await api.post('/api/missions', {
+        missionTitle: title.trim(),
+        missionContent: content.trim(),
+        missionType: scope === '개인' ? 'P' : 'A',
+        verifyPrompt: isForm && useAI ? content.trim() : null,
+        missionStartDtm: `${startDate} 00:00:00`,
+        missionEndDtm: `${endDate} 23:59:59`,
+        teamId: id,
+      });
+      router.back();
+    } catch (err) {
+      console.error('미션 등록 실패:', err);
+      alert('미션 등록에 실패했습니다. 다시 시도해 주세요.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setAttachedFiles(Array.from(e.target.files));
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   return (
     <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-4">
@@ -126,8 +161,8 @@ export default function MissionNewPage() {
           )}
         </div>
 
-        {/* 시작일 / 마감일 */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* 시작일 / 마감일 — iOS에서 2열 배치 시 날짜 텍스트가 넘쳐 겹치므로 1열 세로 배치 */}
+        <div className="flex flex-col gap-3">
           <div>
             <label className="block text-[13px] font-medium text-zinc-500 mb-1.5">미션 시작일</label>
             <input
@@ -175,21 +210,67 @@ export default function MissionNewPage() {
           </div>
 
           {/* 파일 첨부 카드 */}
-          <div className="bg-white rounded-xl px-4 py-3.5 flex items-center gap-3 text-zinc-400 cursor-pointer active:bg-zinc-50">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-            </svg>
-            <span className="text-[14px]">파일 첨부</span>
+          <div className="bg-white rounded-xl px-4 py-3.5 flex flex-col gap-3">
+            {/* 숨긴 파일 입력 */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            {/* 첨부 버튼 행 */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-3 text-zinc-400 active:text-zinc-600 transition-colors w-full"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+              </svg>
+              <span className="text-[14px]">파일 첨부</span>
+              {attachedFiles.length > 0 && (
+                <span className="ml-auto text-[12px] font-medium text-[#3B3EFF]">{attachedFiles.length}개</span>
+              )}
+            </button>
+
+            {/* 첨부된 파일 목록 */}
+            {attachedFiles.length > 0 && (
+              <ul className="flex flex-col gap-2">
+                {attachedFiles.map((file, i) => (
+                  <li key={i} className="flex items-center gap-2 bg-zinc-50 rounded-lg px-3 py-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                      <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+                      <polyline points="13 2 13 9 20 9" />
+                    </svg>
+                    <span className="flex-1 min-w-0 text-[13px] text-zinc-700 truncate">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="shrink-0 text-zinc-400 hover:text-zinc-600 p-0.5"
+                      aria-label="파일 제거"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </>
       )}
 
       {/* 등록 버튼 */}
       <button
-        disabled={!canSubmit}
+        onClick={handleSubmit}
+        disabled={!canSubmit || isSubmitting}
         className="w-full h-[52px] bg-[#3B3EFF] text-white rounded-2xl text-[15px] font-bold disabled:bg-zinc-300 disabled:text-zinc-500 transition-colors mt-2"
       >
-        미션 등록
+        {isSubmitting ? '등록 중...' : '미션 등록'}
       </button>
     </div>
   );

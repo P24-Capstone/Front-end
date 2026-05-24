@@ -331,12 +331,9 @@ export default function MissionsPage() {
 
       {showPopup && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setShowPopup(false)} />
+          <div className="fixed inset-0 z-40" onClick={() => router.push(`/${id}/missions/new`)} />
           <div className="fixed z-50 bg-white rounded-xl shadow-xl w-[180px] overflow-hidden border border-zinc-100"
             style={{ bottom: 'calc(80px + 56px)', right: 'calc(50% - 195px + 16px)' }}>
-            <button onClick={() => { setShowPopup(false); router.push(`/${id}/missions/new`); }}
-              className="w-full flex items-center gap-2.5 px-4 py-3 active:bg-zinc-50 transition-colors">
-            </button>
           </div>
         </>
       )}

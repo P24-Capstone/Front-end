@@ -21,11 +21,8 @@ export default function CreateEventPage() {
   const [formData, setFormData] = useState({
     evtTitle: '',
     evtContent: '',
-    evtLocation: '',
     startDate: '',
-    startTime: '',
     endDate: '',
-    endTime: '',
   });
 
   const createEventMutation = useMutation({
@@ -49,22 +46,13 @@ export default function CreateEventPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const startDt = formData.startTime
-      ? `${formData.startDate}`
-      : formData.startDate;
-    const endDt = formData.endDate
-      ? formData.endTime
-        ? `${formData.endDate}`
-        : formData.endDate
-      : null;
 
     createEventMutation.mutate({
       teamId: id,
       evtTitle: formData.evtTitle,
       evtContent: formData.evtContent,
-      evtLocation: formData.evtLocation,
-      evtStartDt: startDt,
-      ...(endDt && { evtEndDt: endDt }),
+      evtStartDt: formData.startDate,                                  // YYYY-MM-DD
+      ...(formData.endDate && { evtEndDt: formData.endDate }),         // YYYY-MM-DD
     });
   };
 
@@ -82,17 +70,6 @@ export default function CreateEventPage() {
             className={inputCls}
             value={formData.evtTitle}
             onChange={(e) => setFormData({ ...formData, evtTitle: e.target.value })}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[13px] font-semibold text-zinc-800">장소</label>
-          <input
-            type="text"
-            placeholder="예) 스타벅스 홍대점, 온라인 (Zoom)"
-            className={inputCls}
-            value={formData.evtLocation}
-            onChange={(e) => setFormData({ ...formData, evtLocation: e.target.value })}
           />
         </div>
 

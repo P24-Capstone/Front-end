@@ -9,7 +9,6 @@ interface EventResponse {
   evtId: number;
   evtTitle: string;
   evtContent: string;
-  evtLocation: string;
   evtStartDt: string;
   evtEndDt: string;
   evtRegDtm: string;
@@ -25,9 +24,7 @@ const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
 
 function formatDate(dt: string) {
   const d = new Date(dt);
-  const base = `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${DAY_NAMES[d.getDay()]})`;
-  const time = dt.length > 10 ? ` ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}` : '';
-  return base + time;
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${DAY_NAMES[d.getDay()]})`;
 }
 
 export default function EventDetailPage() {
@@ -39,9 +36,7 @@ export default function EventDetailPage() {
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [startDate, setStartDate] = useState('');
-  const [startTime, setStartTime] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [endTime, setEndTime] = useState('');
   const [content, setContent] = useState('');
   const initialized = useRef(false);
 
@@ -67,11 +62,8 @@ export default function EventDetailPage() {
 
   if (event && !initialized.current) {
     setTitle(event.evtTitle ?? '');
-    setLocation(event.evtLocation ?? '');
-    setStartDate(event.evtStartDt?.slice(0, 10) ?? '');
-    setStartTime(event.evtStartDt?.slice(11, 16) ?? '');
-    setEndDate(event.evtEndDt?.slice(0, 10) ?? '');
-    setEndTime(event.evtEndDt?.slice(11, 16) ?? '');
+    setStartDate(event.evtStartDt ?? '');
+    setEndDate(event.evtEndDt ?? '');
     setContent(event.evtContent ?? '');
     initialized.current = true;
   }
@@ -83,8 +75,8 @@ export default function EventDetailPage() {
         evtTitle: title,
         evtContent: content,
         evtLocation: location,
-        evtStartDt: startTime ? `${startDate}T${startTime}:00` : startDate,
-        evtEndDt: endTime ? `${endDate}T${endTime}:00` : endDate,
+        evtStartDt: startDate,
+        evtEndDt: endDate,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event', eventId] });
@@ -96,11 +88,8 @@ export default function EventDetailPage() {
   const handleCancel = () => {
     if (event) {
       setTitle(event.evtTitle ?? '');
-      setLocation(event.evtLocation ?? '');
-      setStartDate(event.evtStartDt?.slice(0, 10) ?? '');
-      setStartTime(event.evtStartDt?.slice(11, 16) ?? '');
-      setEndDate(event.evtEndDt?.slice(0, 10) ?? '');
-      setEndTime(event.evtEndDt?.slice(11, 16) ?? '');
+      setStartDate(event.evtStartDt ?? '');
+      setEndDate(event.evtEndDt ?? '');
       setContent(event.evtContent ?? '');
     }
     setEditing(false);
@@ -174,36 +163,20 @@ export default function EventDetailPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M16 2v4M8 2v4M3 10h18" />
           </svg>
           {editing ? (
-            <div className="flex flex-col gap-2 flex-1">
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="flex-1 border-b border-zinc-300 text-[13px] text-zinc-700 outline-none bg-transparent focus:border-[#3B3EFF] py-0.5"
-                />
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-24 border-b border-zinc-300 text-[13px] text-zinc-700 outline-none bg-transparent focus:border-[#3B3EFF] py-0.5"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-zinc-400 text-[12px] w-4">~</span>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="flex-1 border-b border-zinc-300 text-[13px] text-zinc-700 outline-none bg-transparent focus:border-[#3B3EFF] py-0.5"
-                />
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-24 border-b border-zinc-300 text-[13px] text-zinc-700 outline-none bg-transparent focus:border-[#3B3EFF] py-0.5"
-                />
-              </div>
+            <div className="flex items-center gap-2 flex-1">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="flex-1 border-b border-zinc-300 text-[13px] text-zinc-700 outline-none bg-transparent focus:border-[#3B3EFF] py-0.5"
+              />
+              <span className="text-zinc-400 text-[12px]">~</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="flex-1 border-b border-zinc-300 text-[13px] text-zinc-700 outline-none bg-transparent focus:border-[#3B3EFF] py-0.5"
+              />
             </div>
           ) : (
             <span className="text-[14px] text-zinc-700">
@@ -211,26 +184,7 @@ export default function EventDetailPage() {
               {event.evtStartDt !== event.evtEndDt && ` ~ ${formatDate(event.evtEndDt)}`}
             </span>
           )}
-        </div>
-
-        {/* 장소 */}
-        <div className="flex items-center gap-3">
-          <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" strokeWidth={2} className="shrink-0">
-            <path strokeLinecap="round" strokeLinejoin="round"
-              d="M12 2C8.686 2 6 4.686 6 8c0 5.25 6 14 6 14s6-8.75 6-14c0-3.314-2.686-6-6-6z" />
-            <circle cx="12" cy="8" r="2" />
-          </svg>
-          {editing ? (
-            <input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="장소 미정"
-              className="flex-1 border-b border-zinc-300 text-[14px] text-zinc-700 outline-none bg-transparent focus:border-[#3B3EFF] py-0.5"
-            />
-          ) : (
-            <span className="text-[14px] text-zinc-700">{event.evtLocation || '장소 미정'}</span>
-          )}
-        </div>
+        </div>  
       </div>
 
       {/* 상세 */}

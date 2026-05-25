@@ -62,7 +62,7 @@ export default function MissionVerifyPage() {
         missionId:     Number(missionId),
         verifyContent: text.trim(),   // verify_content → AI 서버로 전달
         imageUrl,                     // image_url       → AI 서버로 전달
-        teamId: Number(id),
+        teamId: id,
       });
 
       router.back();

@@ -33,11 +33,13 @@ export default function RecordPage() {
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const waveRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef  = useRef<MediaRecorder | null>(null);
+  const chunksRef         = useRef<Blob[]>([]);
+  const timerRef          = useRef<ReturnType<typeof setInterval> | null>(null);
+  const waveRef           = useRef<ReturnType<typeof setInterval> | null>(null);
+  const streamRef         = useRef<MediaStream | null>(null);
+  /** 업로드 실패 시 재시도를 위해 Blob 보관 */
+  const retryPayloadRef   = useRef<{ blob: Blob; filename: string } | null>(null);
 
   useEffect(() => {
     const isActive = recordingState === 'recording' || recordingState === 'paused';
@@ -55,6 +57,7 @@ export default function RecordPage() {
   }, [setPageHeader]);
 
   const uploadAudio = useCallback(async (blob: Blob, filename: string) => {
+    retryPayloadRef.current = { blob, filename }; // 재시도용 보관
     setRecordingState('uploading');
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -294,12 +297,30 @@ export default function RecordPage() {
               </svg>
             </div>
             <p className="text-[14px] font-medium text-red-500 text-center">{errorMsg}</p>
-            <button
-              onClick={() => { streamRef.current?.getTracks().forEach((t) => t.stop()); router.push(`/${teamId}/minutes`); }}
-              className="w-full py-3 rounded-xl text-[14px] font-semibold bg-zinc-100 text-zinc-600"
-            >
-              목록으로 돌아가기
-            </button>
+            <div className="flex flex-col gap-2 w-full">
+              {/* 업로드 재시도 — 보관된 Blob이 있을 때만 표시 */}
+              {retryPayloadRef.current && (
+                <button
+                  onClick={() => {
+                    const payload = retryPayloadRef.current!;
+                    setErrorMsg('');
+                    uploadAudio(payload.blob, payload.filename);
+                  }}
+                  className="w-full py-3 rounded-xl text-[14px] font-semibold bg-[#3B3EFF] text-white flex items-center justify-center gap-2"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  다시 시도
+                </button>
+              )}
+              <button
+                onClick={() => { streamRef.current?.getTracks().forEach((t) => t.stop()); router.push(`/${teamId}/minutes`); }}
+                className="w-full py-3 rounded-xl text-[14px] font-semibold bg-zinc-100 text-zinc-600"
+              >
+                목록으로 돌아가기
+              </button>
+            </div>
           </div>
         )}
       </div>

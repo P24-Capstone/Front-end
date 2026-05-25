@@ -268,8 +268,16 @@ export default function MissionsPage() {
     return 'pending';
   };
 
-  const missionParams = (m: MissionData) =>
-    `?authType=${encodeURIComponent('AI인증')}&scope=${encodeURIComponent(getScope(m.missionType))}&title=${encodeURIComponent(m.missionTitle)}&subtitle=${encodeURIComponent(m.missionContent.substring(0, 50))}`;
+  const missionParams = (m: MissionData) => {
+    const params = new URLSearchParams({
+      authType:      'AI인증',
+      scope:         getScope(m.missionType),
+      title:         m.missionTitle,
+      subtitle:      m.missionContent.substring(0, 50),
+      verifyPrompt:  m.verifyPrompt ?? '',
+    });
+    return `?${params.toString()}`;
+  };
 
   // 멤버 뷰 필터
   const memberMissions = missions

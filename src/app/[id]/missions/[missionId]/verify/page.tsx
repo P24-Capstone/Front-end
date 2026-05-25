@@ -2,21 +2,31 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { useHeaderSlotStore } from '@/store/headerSlot';
 import api from '@/lib/api';
 
 const SCOPE_COLOR: Record<string, string> = { 공통: '#FF9E6A', 개인: '#E5638C' };
 
+interface MissionDetail {
+  missionId:      number;
+  missionTitle:   string;
+  missionContent: string;
+  missionType:    string;
+  verifyPrompt:   string | null;
+  missionStartDtm: string;
+  missionEndDtm:  string;
+}
+
 export default function MissionVerifyPage() {
   const { id, missionId } = useParams<{ id: string; missionId: string }>();
-  const router        = useRouter();
-  const searchParams  = useSearchParams();
-  const { setPageHeader } = useHeaderSlotStore();
+  const router             = useRouter();
+  const searchParams       = useSearchParams();
+  const { setPageHeader }  = useHeaderSlotStore();
 
-  const scope        = searchParams.get('scope')        ?? '공통';
-  const title        = searchParams.get('title')        ?? '';
-  const subtitle     = searchParams.get('subtitle')     ?? '';
-  const verifyPrompt = searchParams.get('verifyPrompt') ?? '';
+  /* URL 파라미터는 fallback 으로만 사용 */
+  const scopeParam  = searchParams.get('scope')  ?? '공통';
+  const titleParam  = searchParams.get('title')  ?? '';
 
   const [imageItems, setImageItems] = useState<{ file: File; preview: string }[]>([]);
   const [text,       setText]       = useState('');
@@ -28,27 +38,39 @@ export default function MissionVerifyPage() {
     return () => setPageHeader(null);
   }, [setPageHeader]);
 
+  /* ── 미션 상세 조회: 접근 권한 확인 + 실제 데이터 취득 ── */
+  const { data: mission, isLoading, isError } = useQuery<MissionDetail>({
+    queryKey: ['mission', missionId],
+    queryFn: async () => {
+      const { data } = await api.get(`/api/missions/${missionId}`);
+      return data.data as MissionDetail;
+    },
+    retry: false,
+    enabled: !!missionId,
+  });
+
+  /* API 에서 가져온 실제 값 우선, 없으면 URL 파라미터 사용 */
+  const scope        = mission?.missionType === 'P' ? '개인' : scopeParam;
+  const title        = mission?.missionTitle ?? titleParam;
+  const verifyPrompt = mission?.verifyPrompt ?? '';
+
   const handleImageAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     files.forEach((f) => {
-      if (imageItems.length < 3) {
+      if (imageItems.length < 3)
         setImageItems((prev) => [...prev, { file: f, preview: URL.createObjectURL(f) }]);
-      }
     });
     e.target.value = '';
   };
 
-  const handleRemoveImage = (i: number) => {
+  const handleRemoveImage = (i: number) =>
     setImageItems((prev) => prev.filter((_, idx) => idx !== i));
-  };
 
-  /* 사진은 필수 */
   const canSubmit = imageItems.length > 0 && !submitting;
 
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      /* 대표 이미지(첫 번째) 업로드 */
       const form = new FormData();
       form.append('file', imageItems[0].file);
       const { data: uploadRes } = await api.post(
@@ -60,9 +82,9 @@ export default function MissionVerifyPage() {
 
       await api.post('/api/missions/verify', {
         missionId:     Number(missionId),
-        verifyContent: text.trim(),   // verify_content → AI 서버로 전달
-        imageUrl,                     // image_url       → AI 서버로 전달
-        teamId: id,
+        verifyContent: text.trim(),
+        imageUrl,
+        teamId:        id,
       });
 
       router.back();
@@ -73,6 +95,41 @@ export default function MissionVerifyPage() {
     }
   };
 
+  /* ── 로딩 ── */
+  if (isLoading) {
+    return (
+      <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex items-center justify-center">
+        <p className="text-[13px] text-zinc-400">미션 정보를 불러오는 중...</p>
+      </div>
+    );
+  }
+
+  /* ── 접근 불가 (개인 미션 비대상자 또는 존재하지 않는 미션) ── */
+  if (isError) {
+    return (
+      <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col items-center justify-center gap-4">
+        <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
+          <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#ef4444" strokeWidth={1.8}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" strokeLinecap="round" />
+            <circle cx="12" cy="16" r="0.8" fill="#ef4444" />
+          </svg>
+        </div>
+        <div className="text-center">
+          <p className="text-[15px] font-bold text-zinc-900">접근 권한이 없어요</p>
+          <p className="text-[13px] text-zinc-400 mt-1">이 미션의 인증 대상자가 아닙니다.</p>
+        </div>
+        <button
+          onClick={() => router.back()}
+          className="mt-2 px-6 h-[44px] bg-zinc-800 text-white rounded-2xl text-[14px] font-semibold"
+        >
+          돌아가기
+        </button>
+      </div>
+    );
+  }
+
+  /* ── 인증 폼 ── */
   return (
     <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-4">
 
@@ -95,7 +152,9 @@ export default function MissionVerifyPage() {
             </span>
           </div>
           <p className="text-[14px] font-bold text-zinc-900 leading-snug">{title}</p>
-          {subtitle && <p className="text-[12px] text-zinc-400 mt-0.5">{subtitle}</p>}
+          {mission?.missionContent && (
+            <p className="text-[12px] text-zinc-400 mt-0.5 line-clamp-2">{mission.missionContent}</p>
+          )}
         </div>
       </div>
 
@@ -120,7 +179,6 @@ export default function MissionVerifyPage() {
           </p>
           <p className="text-[11px] text-zinc-400 mt-0.5">최대 3장 · 대표 사진: 첫 번째 이미지</p>
         </div>
-
         <div className="flex gap-2.5">
           {imageItems.map((img, i) => (
             <div key={i} className="relative w-[88px] h-[88px] rounded-xl overflow-hidden bg-zinc-100 shrink-0">
@@ -157,16 +215,14 @@ export default function MissionVerifyPage() {
         />
       </div>
 
-      {/* ── 인증 설명 (선택 · verify_content) ── */}
+      {/* ── 인증 설명 (선택) ── */}
       <div className="bg-white rounded-xl p-4 flex flex-col gap-2">
         <div>
           <p className="text-[14px] font-semibold text-zinc-800">
             인증 설명{' '}
             <span className="text-zinc-400 font-normal text-[12px]">(선택)</span>
           </p>
-          <p className="text-[11px] text-zinc-400 mt-0.5">
-            사진에 대해 AI에게 한 줄로 설명해 주세요.
-          </p>
+          <p className="text-[11px] text-zinc-400 mt-0.5">사진에 대해 AI에게 한 줄로 설명해 주세요.</p>
         </div>
         <textarea
           value={text}

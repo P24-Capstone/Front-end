@@ -88,7 +88,10 @@ export default function SubmissionDetailPage() {
     enabled: !!submissionId,
   });
 
-  const isDecided = detail?.verifyState === 'A' || detail?.verifyState === 'F' || detail?.verifyState === 'R';
+  // P 상태: AI 판정 전 → 모임장 수동 승인/거절 가능
+  const canManualDecide   = detail?.verifyState === 'P';
+  // A·F 상태: AI 또는 제출자가 승인 → 모임장이 강제 R로 변경 가능
+  const canForceReject    = detail?.verifyState === 'A' || detail?.verifyState === 'F';
 
   const handleApprove = async () => {
     setActing(true);
@@ -271,8 +274,8 @@ export default function SubmissionDetailPage() {
         </div>
       )}
 
-      {/* 승인 / 거절 버튼 (아직 처리 안 된 경우) */}
-      {!isDecided && (
+      {/* P 상태: AI 판정 전 → 모임장 수동 승인 / 거절 */}
+      {canManualDecide && (
         <div className="flex gap-3 mt-2">
           <button
             disabled={acting}
@@ -289,6 +292,17 @@ export default function SubmissionDetailPage() {
             {acting ? '처리 중...' : '승인'}
           </button>
         </div>
+      )}
+
+      {/* A·F 상태: AI/제출자 승인 후 → 모임장 강제 거절(R) 가능 */}
+      {canForceReject && (
+        <button
+          disabled={acting}
+          onClick={() => setRejectOpen(true)}
+          className="w-full h-[52px] border border-red-400 text-red-500 rounded-2xl text-[15px] font-semibold disabled:opacity-50 mt-2"
+        >
+          {acting ? '처리 중...' : '강제 거절'}
+        </button>
       )}
 
       {rejectOpen && <RejectPopup onConfirm={handleReject} onCancel={() => setRejectOpen(false)} />}

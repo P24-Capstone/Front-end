@@ -170,7 +170,7 @@ function getNewsLink(item: NewsResponse): string | null {
   }
 }
 
-function HomeNewsCard({ news, currentUserId }: { news: NewsResponse; currentUserId: string }) {
+function HomeNewsCard({ news, currentUserId, isLeader }: { news: NewsResponse; currentUserId: string; isLeader: boolean }) {
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -233,7 +233,9 @@ function HomeNewsCard({ news, currentUserId }: { news: NewsResponse; currentUser
                 <>
                   {comments.length === 0 && <p className="text-[12px] text-zinc-400">첫 댓글을 남겨보세요.</p>}
                   {comments.map(cmt => {
-                    const isMe = cmt.memId === currentUserId;
+                    const isMe      = cmt.memId === currentUserId;
+                    const canEdit   = isMe;               // 본인만 수정
+                    const canDelete = isMe || isLeader;   // 본인 or 모임장 삭제
                     return (
                       <div key={cmt.cmtId} className="flex items-start justify-between gap-2">
                         <div className="flex items-start gap-2 flex-1 min-w-0">
@@ -241,23 +243,54 @@ function HomeNewsCard({ news, currentUserId }: { news: NewsResponse; currentUser
                             {cmt.userImg && cmt.userImg !== 'default' ? <img src={cmt.userImg} alt="" className="w-full h-full object-cover" /> : (cmt.memNic || cmt.memId)?.slice(0, 1) || '?'}
                           </div>
                           {editingId === cmt.cmtId ? (
-                            <div className="flex-1 flex gap-2">
-                              <input value={editText} onChange={e => setEditText(e.target.value)} className="flex-1 border border-zinc-200 rounded px-2 py-1 text-[12px] outline-none focus:border-[#3B3EFF]" />
-                              <button onClick={() => editMut.mutate({ cmtId: cmt.cmtId, cmtContent: editText })} className="text-[11px] font-semibold text-[#3B3EFF]">저장</button>
-                              <button onClick={() => setEditingId(null)} className="text-[11px] text-zinc-400">취소</button>
+                            <div className="flex-1 flex flex-col gap-1.5">
+                              <input
+                                value={editText}
+                                onChange={e => setEditText(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' && editText.trim()) editMut.mutate({ cmtId: cmt.cmtId, cmtContent: editText.trim() });
+                                  if (e.key === 'Escape') setEditingId(null);
+                                }}
+                                className="flex-1 border border-[#3B3EFF] rounded-lg px-2.5 py-1.5 text-[12px] outline-none bg-white"
+                                autoFocus
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  disabled={!editText.trim() || editMut.isPending}
+                                  onClick={() => editMut.mutate({ cmtId: cmt.cmtId, cmtContent: editText.trim() })}
+                                  className="text-[11px] font-semibold text-[#3B3EFF] disabled:opacity-40"
+                                >저장</button>
+                                <button onClick={() => setEditingId(null)} className="text-[11px] text-zinc-400">취소</button>
+                              </div>
                             </div>
                           ) : (
                             <div className="flex-1 min-w-0">
                               <p className="text-[11px] font-semibold text-zinc-800 mb-0.5">{cmt.memNic || cmt.memId}</p>
                               <p className="text-[12px] text-zinc-700 leading-snug">{cmt.cmtContent}</p>
-                              <p className="text-[10px] text-zinc-400 mt-0.5">{cmt.cmtRegDtm?.slice(0, 16)}</p>
+                              <p className="text-[10px] text-zinc-400 mt-0.5">
+                                {cmt.cmtRegDtm?.slice(0, 16)}
+                                {cmt.cmtModDtm && cmt.cmtModDtm !== cmt.cmtRegDtm && (
+                                  <span className="ml-1">(수정됨)</span>
+                                )}
+                              </p>
                             </div>
                           )}
                         </div>
-                        {isMe && editingId !== cmt.cmtId && (
-                          <div className="shrink-0 flex gap-2 pt-0.5">
-                            <button onClick={() => { setEditingId(cmt.cmtId); setEditText(cmt.cmtContent); }} className="text-[11px] text-zinc-400 hover:text-[#3B3EFF]">수정</button>
-                            <button onClick={() => delMut.mutate(cmt.cmtId)} className="text-[11px] text-zinc-400 hover:text-red-400">삭제</button>
+                        {editingId !== cmt.cmtId && (canEdit || canDelete) && (
+                          <div className="shrink-0 flex items-center gap-2 pt-0.5">
+                            {canEdit && (
+                              <button
+                                onClick={() => { setEditingId(cmt.cmtId); setEditText(cmt.cmtContent); }}
+                                className="text-[11px] text-zinc-400 hover:text-[#3B3EFF] transition-colors"
+                              >수정</button>
+                            )}
+                            {canDelete && (
+                              <button
+                                onClick={() => delMut.mutate(cmt.cmtId)}
+                                disabled={delMut.isPending}
+                                className="text-[11px] text-zinc-400 hover:text-red-400 transition-colors disabled:opacity-40"
+                              >삭제</button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -360,7 +393,7 @@ export default function GroupHomePage() {
         <div className="space-y-2">
           {newsLoading && <div className="p-3 rounded-xl bg-zinc-50 animate-pulse h-14" />}
           {!newsLoading && news.length === 0 && <p className="text-[13px] text-zinc-400 py-2">최근 소식이 없습니다.</p>}
-          {news.map(item => <HomeNewsCard key={item.newsId} news={item} currentUserId={currentUserId} />)}
+          {news.map(item => <HomeNewsCard key={item.newsId} news={item} currentUserId={currentUserId} isLeader={isLeader} />)}
         </div>
       </section>
 

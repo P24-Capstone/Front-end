@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 
 type SortType = '생성일순' | '이름순';
@@ -74,23 +74,64 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function MinuteCard({ record, groupId }: { record: MeetingRecordResponse; groupId: string }) {
+  const queryClient = useQueryClient();
+  const isFailed = record.status === 'F';
+
+  const retryMutation = useMutation({
+    mutationFn: () => api.post(`/api/meeting-records/${record.meetingId}/retry`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meeting-records', groupId] });
+    },
+    onError: () => alert('재시도에 실패했습니다. 잠시 후 다시 시도해 주세요.'),
+  });
+
   return (
-    <Link href={`/${groupId}/minutes/${record.meetingId}`}>
-      <div className="bg-white rounded-lg px-4 py-3.5 flex items-center gap-3 active:bg-zinc-50 transition-colors">
-        <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center shrink-0">
-          <MicIcon />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap gap-1 mb-1.5">
-            <StatusBadge status={record.status} />
+    <div className="bg-white rounded-lg overflow-hidden">
+      <Link href={`/${groupId}/minutes/${record.meetingId}`}>
+        <div className="px-4 py-3.5 flex items-center gap-3 active:bg-zinc-50 transition-colors">
+          <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center shrink-0">
+            <MicIcon />
           </div>
-          <p className="text-[14px] font-medium text-zinc-800 truncate">
-            {record.meetingTitle || '제목 없음'}
-          </p>
-          <p className="text-[12px] text-zinc-400 mt-0.5">{record.meetingRegDtm?.slice(0, 10)}</p>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap gap-1 mb-1.5">
+              <StatusBadge status={record.status} />
+            </div>
+            <p className="text-[14px] font-medium text-zinc-800 truncate">
+              {record.meetingTitle || '제목 없음'}
+            </p>
+            <p className="text-[12px] text-zinc-400 mt-0.5">{record.meetingRegDtm?.slice(0, 10)}</p>
+          </div>
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#d4d4d8" strokeWidth={2.5} className="shrink-0">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
+          </svg>
         </div>
-      </div>
-    </Link>
+      </Link>
+
+      {/* 실패 시 재시도 버튼 */}
+      {isFailed && (
+        <div className="px-4 pb-3 border-t border-zinc-50">
+          <button
+            onClick={() => retryMutation.mutate()}
+            disabled={retryMutation.isPending}
+            className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 disabled:opacity-50 text-[12px] font-semibold transition-colors"
+          >
+            {retryMutation.isPending ? (
+              <>
+                <span className="w-3 h-3 border-2 border-red-300 border-t-red-400 rounded-full animate-spin" />
+                재시도 중...
+              </>
+            ) : (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                AI 분석 재시도
+              </>
+            )}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

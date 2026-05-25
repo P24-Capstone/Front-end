@@ -12,7 +12,8 @@ interface MyMissionResponse {
   missionId: number;
   missionTitle: string;
   missionContent: string;
-  missionType: string;
+  missionType: string;        // 'A'(공통) | 'P'(개인)
+  verifyPrompt: string | null;
   missionStartDtm: string;
   missionEndDtm: string;
   teamId: string;
@@ -32,15 +33,26 @@ function calcDeadline(endDtm: string): string | null {
 
 function missionStatus(m: MyMissionResponse): '가능' | '대기' | '완료' | '실패' {
   if (m.submissionState === 'P') return '대기';
-  if (m.submissionState === 'A') return '완료';
+  // A(최종 승인), F(수동 최종 확정) 모두 완료
+  if (m.submissionState === 'A' || m.submissionState === 'F') return '완료';
   if (m.submissionState === 'R') return '실패';
   return '가능';
 }
 
+function missionScope(m: MyMissionResponse): '공통' | '개인' {
+  return m.missionType === 'P' ? '개인' : '공통';
+}
+
 function missionHref(m: MyMissionResponse, status: '가능' | '대기' | '완료' | '실패'): string {
-  const authType = m.missionType === 'I' ? 'AI인증' : '수동인증';
+  const scope    = missionScope(m);
   const subtitle = `${m.missionStartDtm?.slice(0, 10)} ~ ${m.missionEndDtm?.slice(0, 10)}`;
-  const params = new URLSearchParams({ authType, scope: '공통', title: m.missionTitle, subtitle });
+  const params   = new URLSearchParams({
+    authType:     'AI인증',
+    scope,
+    title:        m.missionTitle,
+    subtitle,
+    verifyPrompt: m.verifyPrompt ?? '',
+  });
   const base = `/${m.teamId}/missions/${m.missionId}`;
   return status === '가능' ? `${base}/verify?${params}` : `${base}/pending?${params}`;
 }
@@ -57,8 +69,6 @@ interface TeamResponse {
 }
 
 
-
-const AUTH_COLOR: Record<string, string> = { 'AI인증': '#3B3EFF', '수동인증': '#31DBD5' };
 
 function deadlineColor(d: string | null) {
   if (!d) return 'text-zinc-400';
@@ -793,53 +803,100 @@ export default function MainPage() {
                 <p className="text-center text-[13px] text-zinc-400 py-10">미션이 없습니다.</p>
               ) : (
                 filteredMissions.map((m) => {
-                  const status = missionStatus(m);
+                  const status   = missionStatus(m);
                   const deadline = calcDeadline(m.missionEndDtm);
-                  const authType = m.missionType === 'I' ? 'AI인증' : '수동인증';
-                  const href = missionHref(m, status);
+                  const scope    = missionScope(m);
+                  const href     = missionHref(m, status);
+                  const isDone   = status === '완료' || status === '실패';
+
+                  // 마감됐고 아직 미제출이면 인증 불가 처리
+                  const expired  = status === '가능' && !deadline;
+
+                  const SCOPE_COLOR: Record<string, string> = { 공통: '#FF9E6A', 개인: '#E5638C' };
+
                   return (
                     <div key={m.missionId} className="bg-white rounded-lg px-4 py-3 flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full shrink-0 ${status === '완료' || status === '실패' ? 'bg-zinc-300' : 'bg-zinc-200'}`} />
+                      {/* 아이콘 */}
+                      <div className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center ${isDone || expired ? 'bg-zinc-200' : 'bg-[#EBEBFF]'}`}>
+                        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke={isDone || expired ? '#a1a1aa' : '#3B3EFF'} strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+
+                      {/* 정보 */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] text-zinc-400 font-medium mb-1">{m.teamName}</p>
+                        {/* 모임명 */}
+                        <p className="text-[10px] font-semibold text-[#3B3EFF] truncate mb-0.5">{m.teamName}</p>
+                        {/* 배지 */}
                         <div className="flex gap-1 mb-1">
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: AUTH_COLOR[authType] }}>{authType}</span>
+                          <span
+                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white"
+                            style={{ backgroundColor: SCOPE_COLOR[scope] }}
+                          >{scope}</span>
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white bg-[#3B3EFF]">AI 인증</span>
                         </div>
                         <p className="text-[12px] font-medium text-zinc-800 leading-tight">{m.missionTitle}</p>
-                        <p className="text-[11px] text-zinc-400 mt-0.5">{m.missionContent}</p>
+                        <p className="text-[11px] text-zinc-400 mt-0.5 truncate">{m.missionContent}</p>
                       </div>
+
+                      {/* 액션 */}
                       <div className="shrink-0 flex flex-col items-end gap-2">
-                        {status === '가능' && (
+                        {/* 진행 가능 + 마감 전 */}
+                        {status === '가능' && deadline && (
                           <>
-                            {deadline && <p className="text-[12px]"><span className="text-zinc-800">마감까지 </span><span className={deadlineColor(deadline)}>{deadline}</span></p>}
-                            <button onClick={() => router.push(href)} className="text-[12px] font-semibold text-white bg-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
+                            <p className="text-[12px]">
+                              <span className="text-zinc-800">마감까지 </span>
+                              <span className={deadlineColor(deadline)}>{deadline}</span>
+                            </p>
+                            <button
+                              onClick={() => router.push(href)}
+                              className="text-[12px] font-semibold text-white bg-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap"
+                            >
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
                               인증하기
                             </button>
                           </>
                         )}
+                        {/* 진행 가능 + 마감 지남 (미제출) */}
+                        {expired && (
+                          <span className="text-[12px] text-zinc-400">마감 (미제출)</span>
+                        )}
+                        {/* 승인 대기 */}
                         {status === '대기' && (
                           <>
-                            {deadline ? <p className="text-[12px]"><span className="text-zinc-800">마감까지 </span><span className={deadlineColor(deadline)}>{deadline}</span></p> : <span className="text-[12px] text-zinc-400">마감</span>}
-                            <button onClick={() => router.push(href)} className="text-[12px] font-semibold text-white bg-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
+                            {deadline
+                              ? <p className="text-[12px]"><span className="text-zinc-800">마감까지 </span><span className={deadlineColor(deadline)}>{deadline}</span></p>
+                              : <span className="text-[12px] text-zinc-400">마감</span>}
+                            <button
+                              onClick={() => router.push(href)}
+                              className="text-[12px] font-semibold text-white bg-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap"
+                            >
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                               승인 대기
                             </button>
                           </>
                         )}
+                        {/* 인증 실패 */}
                         {status === '실패' && (
                           <>
                             <span className="text-[12px] text-zinc-400">마감</span>
-                            <button onClick={() => router.push(href)} className="text-[12px] font-semibold text-[#3B3EFF] bg-white border border-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
+                            <button
+                              onClick={() => router.push(href)}
+                              className="text-[12px] font-semibold text-[#3B3EFF] bg-white border border-[#3B3EFF] rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap"
+                            >
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
                               인증 실패
                             </button>
                           </>
                         )}
+                        {/* 인증 완료 */}
                         {status === '완료' && (
                           <>
                             <span className="text-[12px] text-zinc-400">마감</span>
-                            <button onClick={() => router.push(href)} className="text-[12px] font-medium text-zinc-400 bg-zinc-100 rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap">
+                            <button
+                              onClick={() => router.push(href)}
+                              className="text-[12px] font-medium text-zinc-400 bg-zinc-100 rounded-lg px-3.5 py-1.5 flex items-center gap-1 whitespace-nowrap"
+                            >
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg>
                               인증 완료
                             </button>

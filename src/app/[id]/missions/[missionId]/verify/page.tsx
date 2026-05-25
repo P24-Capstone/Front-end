@@ -8,7 +8,7 @@ import api from '@/lib/api';
 const SCOPE_COLOR: Record<string, string> = { 공통: '#FF9E6A', 개인: '#E5638C' };
 
 export default function MissionVerifyPage() {
-  const { missionId } = useParams<{ id: string; missionId: string }>();
+  const { id, missionId } = useParams<{ id: string; missionId: string }>();
   const router        = useRouter();
   const searchParams  = useSearchParams();
   const { setPageHeader } = useHeaderSlotStore();
@@ -62,6 +62,7 @@ export default function MissionVerifyPage() {
         missionId:     Number(missionId),
         verifyContent: text.trim(),   // verify_content → AI 서버로 전달
         imageUrl,                     // image_url       → AI 서버로 전달
+        teamId: Number(id),
       });
 
       router.back();

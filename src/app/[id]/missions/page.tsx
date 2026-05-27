@@ -12,6 +12,12 @@ type UserStatus = 'available' | 'pending' | 'completed' | 'failed';
 
 interface MemberMe { memRole: string; memState: string; }
 
+interface MemberInfo {
+  memId: string;
+  memNic: string;
+  imgFileKey: string | null;
+}
+
 interface MissionData {
   missionId: number;
   missionTitle: string;
@@ -23,6 +29,7 @@ interface MissionData {
   teamId: string;
   memIds: string[];
   fileKeys: string[];
+  memberInfos: MemberInfo[]; // 개인 미션 대상자 정보
 }
 
 const SCOPE_COLOR: Record<string, string> = { 공통: '#FF9E6A', 개인: '#E5638C' };
@@ -52,6 +59,35 @@ function Badges({ scope }: { scope: '공통' | '개인' }) {
     <div className="flex gap-1 mb-1">
       <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white"
         style={{ backgroundColor: SCOPE_COLOR[scope] }}>{scope}</span>
+    </div>
+  );
+}
+
+/** 개인 미션 대상자 아바타 목록 */
+function MemberAvatars({ members }: { members: MemberInfo[] }) {
+  if (!members || members.length === 0) return null;
+  const show = members.slice(0, 3);
+  const rest = members.length - show.length;
+  return (
+    <div className="flex items-center gap-1 mt-1.5">
+      <div className="flex -space-x-1.5">
+        {show.map((m) => (
+          <div key={m.memId}
+            className="w-5 h-5 rounded-full border border-white bg-[#C4B5FD] overflow-hidden shrink-0 flex items-center justify-center">
+            {m.imgFileKey
+              ? <img src={m.imgFileKey} alt={m.memNic} className="w-full h-full object-cover" />
+              : <span className="text-[8px] font-bold text-white leading-none">{m.memNic[0]}</span>}
+          </div>
+        ))}
+        {rest > 0 && (
+          <div className="w-5 h-5 rounded-full border border-white bg-zinc-300 flex items-center justify-center">
+            <span className="text-[8px] font-bold text-zinc-600">+{rest}</span>
+          </div>
+        )}
+      </div>
+      <span className="text-[10px] text-zinc-400 truncate max-w-[120px]">
+        {show.map(m => m.memNic).join(', ')}{rest > 0 ? ` 외 ${rest}명` : ''}
+      </span>
     </div>
   );
 }
@@ -99,6 +135,7 @@ function MemberMissionCard({ m, deadline, userStatus, onVerify, onViewPending }:
         <Badges scope={scope} />
         <p className="text-[12px] font-medium text-zinc-800 leading-tight">{m.missionTitle}</p>
         <p className="text-[11px] text-zinc-400 mt-1 truncate">{m.missionContent}</p>
+        {m.missionType === 'P' && <MemberAvatars members={m.memberInfos ?? []} />}
       </div>
       <div className="shrink-0 flex flex-col items-end gap-2">
         {userStatus === 'available' && (
@@ -161,6 +198,7 @@ function LeaderCard({ m, onViewSubmissions, onEdit, onDelete }: {
           <Badges scope={scope} />
           <p className="text-[12px] font-medium text-zinc-800 leading-tight">{m.missionTitle}</p>
           <p className="text-[11px] text-zinc-400 mt-1 truncate">{m.missionContent}</p>
+          {m.missionType === 'P' && <MemberAvatars members={m.memberInfos ?? []} />}
         </div>
         <div className="shrink-0 flex flex-col items-end gap-2">
           {deadline

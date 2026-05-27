@@ -196,21 +196,23 @@ export default function MissionPendingPage() {
     retry: false,
   });
 
-  type Status = 'pending' | 'ai_approved' | 'ai_rejected' | 'force_approved' | 'none';
+  // leader_rejected: verifyState=R이지만 AI가 아닌 모임장이 수동 거절한 경우
+  type Status = 'pending' | 'ai_approved' | 'ai_rejected' | 'leader_rejected' | 'force_approved' | 'none';
   const status: Status =
     isError || !submission          ? 'none'
     : submission.verifyState === 'A' ? 'ai_approved'
     : submission.verifyState === 'F' ? 'force_approved'
     : submission.verifyState === 'R' && submission.aiRejectYn === 'Y' ? 'ai_rejected'
-    : submission.verifyState === 'R' ? 'ai_rejected'
+    : submission.verifyState === 'R' ? 'leader_rejected'
     : 'pending';
 
   const HEADER: Record<Status, string> = {
-    none:          '인증 현황',
-    pending:       '제출한 인증',
-    ai_approved:   'AI 인증 완료',
-    ai_rejected:   'AI 인증 실패',
-    force_approved:'인증 완료',
+    none:           '인증 현황',
+    pending:        '제출한 인증',
+    ai_approved:    'AI 인증 완료',
+    ai_rejected:    'AI 인증 실패',
+    leader_rejected:'인증 거절',
+    force_approved: '인증 완료',
   };
 
   useEffect(() => {
@@ -339,6 +341,20 @@ export default function MissionPendingPage() {
             <p className="text-[13px] font-semibold text-zinc-800">AI가 인증을 인식하지 못했어요</p>
             <p className="text-[11px] text-zinc-400 mt-0.5">제출일: {submission?.verifyRegDtm}</p>
           </div>
+          <span className="text-[11px] font-semibold text-red-500 bg-red-100 px-2.5 py-1 rounded-full">AI 거절</span>
+        </div>
+      )}
+      {status === 'leader_rejected' && (
+        <div className="bg-red-50 rounded-xl px-4 py-3.5 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#ef4444" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="text-[13px] font-semibold text-zinc-800">모임장이 인증을 거절했어요</p>
+            <p className="text-[11px] text-zinc-400 mt-0.5">제출일: {submission?.verifyRegDtm}</p>
+          </div>
           <span className="text-[11px] font-semibold text-red-500 bg-red-100 px-2.5 py-1 rounded-full">거절</span>
         </div>
       )}
@@ -350,7 +366,7 @@ export default function MissionPendingPage() {
         </div>
       )}
 
-      {/* ── AI 판정 결과 (A / R) ── */}
+      {/* ── AI 판정 결과 (A / AI거절) ── */}
       {submission?.aiResult && (status === 'ai_approved' || status === 'ai_rejected') && (
         <div className="flex flex-col gap-2">
           <p className="text-[14px] font-semibold text-zinc-800">AI 판정 결과</p>
@@ -359,9 +375,18 @@ export default function MissionPendingPage() {
           </div>
         </div>
       )}
+      {/* ── 모임장 거절 사유 ── */}
+      {submission?.aiResult && status === 'leader_rejected' && (
+        <div className="flex flex-col gap-2">
+          <p className="text-[14px] font-semibold text-zinc-800">거절 사유</p>
+          <div className="bg-white rounded-xl p-4 border border-red-100">
+            <p className="text-[13px] text-zinc-600 leading-relaxed">{submission.aiResult}</p>
+          </div>
+        </div>
+      )}
 
-      {/* ── 제출한 사진 ── */}
-      {isAI && (
+      {/* ── 제출한 사진 (AI 미션) ── */}
+      {isAI && (submission?.fileKeys ?? []).length > 0 && (
         <>
           <p className="text-[14px] font-semibold text-zinc-800">제출한 사진</p>
           <div className="flex gap-2.5">
@@ -373,11 +398,15 @@ export default function MissionPendingPage() {
           </div>
         </>
       )}
-      {!isAI && submission?.verifyContent && (
+
+      {/* ── 제출한 설명 (AI·수동 공통, 작성한 경우에만) ── */}
+      {submission?.verifyContent && (
         <div className="flex flex-col gap-2">
-          <p className="text-[14px] font-semibold text-zinc-800">인증 내용</p>
+          <p className="text-[14px] font-semibold text-zinc-800">
+            {isAI ? '제출한 설명' : '인증 내용'}
+          </p>
           <div className="bg-white rounded-xl p-4">
-            <p className="text-[14px] text-zinc-700 leading-relaxed whitespace-pre-wrap">{submission.verifyContent}</p>
+            <p className="text-[13px] text-zinc-700 leading-relaxed whitespace-pre-wrap">{submission.verifyContent}</p>
           </div>
         </div>
       )}
@@ -407,7 +436,7 @@ export default function MissionPendingPage() {
         </>
       )}
 
-      {/* ── R 상태: 재요청 + 강제 승인 ── */}
+      {/* ── AI 거절: 강제 승인 + 재요청 ── */}
       {status === 'ai_rejected' && (
         <div className="flex gap-3 mt-2">
           <button disabled={acting} onClick={() => setForceConfirm(true)}
@@ -419,6 +448,13 @@ export default function MissionPendingPage() {
             재요청하기
           </button>
         </div>
+      )}
+      {/* ── 모임장 거절: 재요청만 가능 (강제 승인 불가) ── */}
+      {status === 'leader_rejected' && (
+        <button disabled={acting} onClick={() => setShowResubmit(true)}
+          className="w-full h-[52px] bg-[#3B3EFF] text-white rounded-2xl text-[15px] font-bold disabled:opacity-50 mt-2">
+          재요청하기
+        </button>
       )}
 
       {/* ── 팝업들 ── */}

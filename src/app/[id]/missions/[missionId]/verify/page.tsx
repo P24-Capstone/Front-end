@@ -9,13 +9,19 @@ import api from '@/lib/api';
 const SCOPE_COLOR: Record<string, string> = { 공통: '#FF9E6A', 개인: '#E5638C' };
 
 interface MissionDetail {
-  missionId:      number;
-  missionTitle:   string;
-  missionContent: string;
-  missionType:    string;
-  verifyPrompt:   string | null;
+  missionId:       number;
+  missionTitle:    string;
+  missionContent:  string;
+  missionType:     string;
+  verifyPrompt:    string | null;
   missionStartDtm: string;
-  missionEndDtm:  string;
+  missionEndDtm:   string;
+  fileKeys:        string[];  // 모임장이 첨부한 참고 파일
+}
+
+/** "YYYY-MM-DD HH:mm:ss" → "YYYY.MM.DD" */
+function fmtDate(dtm: string): string {
+  return dtm.slice(0, 10).replace(/-/g, '.');
 }
 
 export default function MissionVerifyPage() {
@@ -134,28 +140,51 @@ export default function MissionVerifyPage() {
     <div className="-mx-4 -mb-5 min-h-full bg-zinc-100 px-4 pt-5 pb-8 flex flex-col gap-4">
 
       {/* ── 미션 정보 카드 ── */}
-      <div className="bg-white rounded-xl p-4 flex items-start gap-3">
-        <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center shrink-0">
-          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#6366f1" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-          </svg>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex gap-1.5 mb-1.5">
-            <span
-              className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white"
-              style={{ backgroundColor: SCOPE_COLOR[scope] ?? '#FF9E6A' }}
-            >{scope}</span>
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white bg-[#3B3EFF]">
-              AI 인증
-            </span>
+      <div className="bg-white rounded-xl p-4 flex flex-col gap-3">
+        {/* 배지 + 제목 */}
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center shrink-0">
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#6366f1" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
           </div>
-          <p className="text-[14px] font-bold text-zinc-900 leading-snug">{title}</p>
-          {mission?.missionContent && (
-            <p className="text-[12px] text-zinc-400 mt-0.5 line-clamp-2">{mission.missionContent}</p>
-          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex gap-1.5 mb-1.5">
+              <span
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white"
+                style={{ backgroundColor: SCOPE_COLOR[scope] ?? '#FF9E6A' }}
+              >{scope}</span>
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white bg-[#3B3EFF]">
+                AI 인증
+              </span>
+            </div>
+            <p className="text-[14px] font-bold text-zinc-900 leading-snug">{title}</p>
+          </div>
         </div>
+
+        {/* 시작일 / 마감일 */}
+        {mission && (
+          <div className="flex gap-4 border-t border-zinc-50 pt-3">
+            <div className="flex-1">
+              <p className="text-[10px] font-medium text-zinc-400 mb-0.5">시작일</p>
+              <p className="text-[13px] font-semibold text-zinc-700">{fmtDate(mission.missionStartDtm)}</p>
+            </div>
+            <div className="w-px bg-zinc-100" />
+            <div className="flex-1">
+              <p className="text-[10px] font-medium text-zinc-400 mb-0.5">마감일</p>
+              <p className="text-[13px] font-semibold text-zinc-700">{fmtDate(mission.missionEndDtm)}</p>
+            </div>
+          </div>
+        )}
+
+        {/* 미션 내용 */}
+        {mission?.missionContent && (
+          <div className="border-t border-zinc-50 pt-3">
+            <p className="text-[11px] font-medium text-zinc-400 mb-1">미션 내용</p>
+            <p className="text-[13px] text-zinc-700 leading-relaxed whitespace-pre-wrap">{mission.missionContent}</p>
+          </div>
+        )}
       </div>
 
       {/* ── AI 검증 기준 ── */}
@@ -167,6 +196,46 @@ export default function MissionVerifyPage() {
           <div>
             <p className="text-[11px] font-semibold text-[#3B3EFF] mb-0.5">AI 검증 기준</p>
             <p className="text-[12px] text-[#3B3EFF] leading-relaxed">{verifyPrompt}</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── 참고 파일 (모임장이 첨부한 파일) ── */}
+      {(mission?.fileKeys ?? []).length > 0 && (
+        <div className="bg-white rounded-xl px-4 py-3.5 flex flex-col gap-2">
+          <p className="text-[13px] font-semibold text-zinc-700">참고 파일</p>
+          <div className="flex flex-col gap-1.5">
+            {mission!.fileKeys.map((url, i) => {
+              const name = url.split('/').pop() ?? `파일 ${i + 1}`;
+              const isImg = /\.(png|jpe?g|gif|webp|heic|heif)$/i.test(url);
+              return (
+                <a
+                  key={i}
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 bg-zinc-50 rounded-lg px-3 py-2 active:bg-zinc-100 transition-colors"
+                >
+                  {isImg ? (
+                    <div className="w-8 h-8 rounded-md overflow-hidden bg-zinc-200 shrink-0">
+                      <img src={url} alt={name} className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 rounded-md bg-[#EBEBFF] flex items-center justify-center shrink-0">
+                      <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#3B3EFF" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                      </svg>
+                    </div>
+                  )}
+                  <span className="flex-1 min-w-0 text-[13px] text-zinc-700 truncate">{name}</span>
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#a1a1aa" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                </a>
+              );
+            })}
           </div>
         </div>
       )}

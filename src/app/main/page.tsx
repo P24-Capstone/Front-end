@@ -308,6 +308,7 @@ interface CommentResponse {
   cmtModDtm: string;
   newsId: number;
   memId: string;
+  userId?: string;
   memNic?: string;
   userImg?: string;
 }
@@ -456,7 +457,7 @@ function HomeNewsCard({ news, teamName, currentUserId }: { news: NewsResponse; t
               <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              {showComments ? '댓글 접어두기' : '댓글'}
+              {showComments ? '댓글 접어두기' : comments.length > 0 ? `댓글 (${comments.length})` : '댓글'}
             </button>
           </div>
           {showComments && (
@@ -469,7 +470,7 @@ function HomeNewsCard({ news, teamName, currentUserId }: { news: NewsResponse; t
                     <p className="text-[12px] text-zinc-400">첫 댓글을 남겨보세요.</p>
                   )}
                   {comments.map((cmt) => {
-                    const isMyComment = cmt.memId === currentUserId;
+                    const isMyComment = cmt.userId === currentUserId;
                     return (
                     <div key={cmt.cmtId} className="flex items-start justify-between gap-2">
                       <div className="flex items-start gap-2 flex-1 min-w-0">

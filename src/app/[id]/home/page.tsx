@@ -23,7 +23,7 @@ interface CommentResponse {
   cmtModDtm: string;
   newsId: number;
   memId: string;
-  userId: string;
+  userId?: string;
   memNic?: string;
   userImg?: string;
 }
@@ -237,7 +237,7 @@ function HomeNewsCard({ news, currentUserId, isLeader }: { news: NewsResponse; c
                 <>
                   {comments.length === 0 && <p className="text-[12px] text-zinc-400">첫 댓글을 남겨보세요.</p>}
                   {comments.map(cmt => {
-                    const isMe      = cmt.memId === currentUserId;
+                    const isMe      = cmt.userId === currentUserId;
                     const canEdit   = isMe;               // 본인만 수정
                     const canDelete = isMe || isLeader;   // 본인 or 모임장 삭제
                     return (

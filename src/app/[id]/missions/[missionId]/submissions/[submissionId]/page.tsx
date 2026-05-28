@@ -19,6 +19,7 @@ interface VerifyDetail {
   missionId: number;
   memId: string;
   memNic: string;
+  userImg: string | null;
   rejectReason: string | null;
   fileKeys: string[];
 }
@@ -137,8 +138,11 @@ export default function SubmissionDetailPage() {
 
       {/* 제출자 + AI 결과 */}
       <div className="bg-white rounded-xl px-4 py-3.5 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0">
-          <span className="text-[13px] font-bold text-white">{(detail?.memNic ?? memberName)[0]}</span>
+        <div className="w-9 h-9 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0 overflow-hidden">
+          {detail?.userImg
+            ? <img src={detail.userImg} alt={detail.memNic} className="w-full h-full object-cover" />
+            : <span className="text-[13px] font-bold text-white">{(detail?.memNic ?? memberName)[0]}</span>
+          }
         </div>
         <div className="flex-1">
           <p className="text-[13px] font-semibold text-zinc-800">{detail?.memNic ?? memberName}</p>

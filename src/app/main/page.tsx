@@ -262,6 +262,7 @@ interface CommentResponse {
   cmtModDtm: string;
   newsId: number;
   memId: string;
+  userId: string;
   memNic?: string;
   userImg?: string;
 }
@@ -329,8 +330,8 @@ function getNewsLink(item: NewsResponse): string | null {
 function HomeNewsCard({ news, teamName, currentUserId }: { news: NewsResponse; teamName?: string; currentUserId: string }) {
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
-  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
-  const [editCommentText, setEditCommentText] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editText, setEditText] = useState('');
   const queryClient = useQueryClient();
 
   const canComment = news.targetType === 'M' || news.targetType === 'A';
@@ -343,27 +344,20 @@ function HomeNewsCard({ news, teamName, currentUserId }: { news: NewsResponse; t
       const { data } = await api.get(`/api/news/${news.newsId}/comments`);
       return data.data as CommentResponse[];
     },
-    enabled: showComments && canComment,
+    enabled: canComment,
+    staleTime: 30000,
   });
 
-  const addCommentMutation = useMutation({
-    mutationFn: () =>
-      api.post('/api/news/comments', { newsId: news.newsId, cmtContent: commentText.trim() }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['comments', news.newsId] });
-      setCommentText('');
-    },
+  const addMut = useMutation({
+    mutationFn: () => api.post('/api/news/comments', { newsId: news.newsId, cmtContent: commentText.trim() }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['comments', news.newsId] }); setCommentText(''); },
   });
-
-  const updateCommentMutation = useMutation({
-    mutationFn: ({ cmtId, cmtContent }: { cmtId: number, cmtContent: string }) => api.put(`/api/news/comments/${cmtId}`, { cmtContent }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['comments', news.newsId] });
-      setEditingCommentId(null);
-    },
+  const editMut = useMutation({
+    mutationFn: ({ cmtId, cmtContent }: { cmtId: number; cmtContent: string }) =>
+      api.put(`/api/news/comments/${cmtId}`, { cmtContent }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['comments', news.newsId] }); setEditingId(null); },
   });
-
-  const deleteCommentMutation = useMutation({
+  const delMut = useMutation({
     mutationFn: (cmtId: number) => api.delete(`/api/news/comments/${cmtId}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comments', news.newsId] }),
   });
@@ -410,7 +404,9 @@ function HomeNewsCard({ news, teamName, currentUserId }: { news: NewsResponse; t
               <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              {showComments ? '댓글 접어두기' : '댓글'}
+              {showComments
+                ? '댓글 접어두기'
+                : comments.length > 0 ? `댓글 (${comments.length})` : '댓글'}
             </button>
           </div>
           {showComments && (
@@ -419,67 +415,78 @@ function HomeNewsCard({ news, teamName, currentUserId }: { news: NewsResponse; t
                 <p className="text-[12px] text-zinc-400">불러오는 중...</p>
               ) : (
                 <>
-                  {comments.length === 0 && (
-                    <p className="text-[12px] text-zinc-400">첫 댓글을 남겨보세요.</p>
-                  )}
+                  {comments.length === 0 && <p className="text-[12px] text-zinc-400">첫 댓글을 남겨보세요.</p>}
                   {comments.map((cmt) => {
-                    const isMyComment = cmt.memId === currentUserId;
+                    const isMe = cmt.userId === currentUserId;
                     return (
-                    <div key={cmt.cmtId} className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2 flex-1 min-w-0">
-                        <div className="w-6 h-6 rounded-full bg-zinc-200 shrink-0 flex items-center justify-center text-[10px] text-zinc-500 font-medium overflow-hidden">
-                          {cmt.userImg && cmt.userImg !== 'default' ? (
-                            <img src={cmt.userImg} alt="Profile" className="w-full h-full object-cover" />
+                      <div key={cmt.cmtId} className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                          <div className="w-6 h-6 rounded-full bg-zinc-200 shrink-0 flex items-center justify-center text-[10px] text-zinc-500 font-medium overflow-hidden">
+                            {cmt.userImg && cmt.userImg !== 'default'
+                              ? <img src={cmt.userImg} alt="" className="w-full h-full object-cover" />
+                              : (cmt.memNic || cmt.memId)?.slice(0, 1) || '?'}
+                          </div>
+                          {editingId === cmt.cmtId ? (
+                            <div className="flex-1 flex flex-col gap-1.5">
+                              <input
+                                value={editText}
+                                onChange={e => setEditText(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' && editText.trim()) editMut.mutate({ cmtId: cmt.cmtId, cmtContent: editText.trim() });
+                                  if (e.key === 'Escape') setEditingId(null);
+                                }}
+                                className="flex-1 border border-[#3B3EFF] rounded-lg px-2.5 py-1.5 text-[12px] outline-none bg-white"
+                                autoFocus
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  disabled={!editText.trim() || editMut.isPending}
+                                  onClick={() => editMut.mutate({ cmtId: cmt.cmtId, cmtContent: editText.trim() })}
+                                  className="text-[11px] font-semibold text-[#3B3EFF] disabled:opacity-40"
+                                >저장</button>
+                                <button onClick={() => setEditingId(null)} className="text-[11px] text-zinc-400">취소</button>
+                              </div>
+                            </div>
                           ) : (
-                            (cmt.memNic || cmt.memId)?.slice(0, 1) || '?'
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-semibold text-zinc-800 mb-0.5">{cmt.memNic || cmt.memId}</p>
+                              <p className="text-[12px] text-zinc-700 leading-snug">{cmt.cmtContent}</p>
+                              <p className="text-[10px] text-zinc-400 mt-0.5">
+                                {cmt.cmtRegDtm?.slice(0, 16)}
+                                {cmt.cmtModDtm && cmt.cmtModDtm !== cmt.cmtRegDtm && <span className="ml-1">(수정됨)</span>}
+                              </p>
+                            </div>
                           )}
                         </div>
-                        {editingCommentId === cmt.cmtId ? (
-                          <div className="flex-1 min-w-0 flex gap-2">
-                            <input
-                              value={editCommentText}
-                              onChange={(e) => setEditCommentText(e.target.value)}
-                              className="flex-1 border border-zinc-200 rounded px-2 py-1 text-[12px] outline-none focus:border-[#3B3EFF]"
-                            />
-                            <button onClick={() => updateCommentMutation.mutate({ cmtId: cmt.cmtId, cmtContent: editCommentText })} className="text-[11px] font-semibold text-[#3B3EFF] shrink-0">저장</button>
-                            <button onClick={() => setEditingCommentId(null)} className="text-[11px] text-zinc-400 shrink-0">취소</button>
-                          </div>
-                        ) : (
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[11px] font-semibold text-zinc-800 mb-0.5">{cmt.memNic || cmt.memId}</p>
-                            <p className="text-[12px] text-zinc-700 leading-snug">{cmt.cmtContent}</p>
-                            <p className="text-[10px] text-zinc-400 mt-0.5">{cmt.cmtRegDtm?.slice(0, 16)}</p>
+                        {isMe && editingId !== cmt.cmtId && (
+                          <div className="shrink-0 flex items-center gap-2 pt-0.5">
+                            <button
+                              onClick={() => { setEditingId(cmt.cmtId); setEditText(cmt.cmtContent); }}
+                              className="text-[11px] text-zinc-400 hover:text-[#3B3EFF] transition-colors"
+                            >수정</button>
+                            <button
+                              onClick={() => delMut.mutate(cmt.cmtId)}
+                              disabled={delMut.isPending}
+                              className="text-[11px] text-zinc-400 hover:text-red-400 transition-colors disabled:opacity-40"
+                            >삭제</button>
                           </div>
                         )}
                       </div>
-                      {isMyComment && editingCommentId !== cmt.cmtId && (
-                        <div className="shrink-0 flex items-center gap-2 pt-0.5">
-                          <button onClick={() => { setEditingCommentId(cmt.cmtId); setEditCommentText(cmt.cmtContent); }} className="text-[11px] text-zinc-400 hover:text-[#3B3EFF] transition-colors">
-                            수정
-                          </button>
-                          <button
-                            onClick={() => deleteCommentMutation.mutate(cmt.cmtId)}
-                            className="text-[11px] text-zinc-400 hover:text-red-400 transition-colors"
-                          >
-                            삭제
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )})}
+                    );
+                  })}
                 </>
               )}
               <div className="flex gap-2">
                 <input
                   value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && commentText.trim()) addCommentMutation.mutate(); }}
+                  onChange={e => setCommentText(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && commentText.trim()) addMut.mutate(); }}
                   placeholder="댓글 입력..."
                   className="flex-1 border border-zinc-200 rounded-lg px-3 py-1.5 text-[13px] outline-none focus:border-[#3B3EFF] bg-white"
                 />
                 <button
-                  disabled={!commentText.trim() || addCommentMutation.isPending}
-                  onClick={() => addCommentMutation.mutate()}
+                  disabled={!commentText.trim() || addMut.isPending}
+                  onClick={() => addMut.mutate()}
                   className="px-3 py-1.5 bg-[#3B3EFF] text-white rounded-lg text-[12px] font-semibold disabled:bg-zinc-200 disabled:text-zinc-400"
                 >
                   등록

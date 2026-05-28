@@ -23,6 +23,7 @@ interface CommentResponse {
   cmtModDtm: string;
   newsId: number;
   memId: string;
+  userId: string;
   memNic?: string;
   userImg?: string;
 }
@@ -139,7 +140,7 @@ function Heatmap({ data }: { data: number[][] }) {
   );
 }
 
-// ─── News Card (same as main) ─────────────────────────────────────────────────
+// ─── News Card ────────────────────────────────────────────────────────────────
 
 const TARGET_BG: Record<string, string> = {
   N: 'bg-amber-100', V: 'bg-[#EBEBFF]', E: 'bg-green-100',
@@ -170,7 +171,7 @@ function getNewsLink(item: NewsResponse): string | null {
   }
 }
 
-function HomeNewsCard({ news, currentUserId }: { news: NewsResponse; currentUserId: string }) {
+function HomeNewsCard({ news, currentUserId, isLeader }: { news: NewsResponse; currentUserId: string; isLeader: boolean }) {
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -187,7 +188,8 @@ function HomeNewsCard({ news, currentUserId }: { news: NewsResponse; currentUser
       const { data } = await api.get(`/api/news/${news.newsId}/comments`);
       return data.data as CommentResponse[];
     },
-    enabled: showComments && canComment,
+    enabled: canComment,
+    staleTime: 30000,
   });
 
   const addMut = useMutation({
@@ -224,7 +226,9 @@ function HomeNewsCard({ news, currentUserId }: { news: NewsResponse; currentUser
           <div className="px-3 pb-2 border-t border-zinc-100">
             <button onClick={() => setShowComments(!showComments)} className="flex items-center gap-1 text-[12px] text-zinc-400 mt-2">
               <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-              {showComments ? '댓글 접어두기' : '댓글'}
+              {showComments
+                ? '댓글 접어두기'
+                : comments.length > 0 ? `댓글 (${comments.length})` : '댓글'}
             </button>
           </div>
           {showComments && (
@@ -233,7 +237,9 @@ function HomeNewsCard({ news, currentUserId }: { news: NewsResponse; currentUser
                 <>
                   {comments.length === 0 && <p className="text-[12px] text-zinc-400">첫 댓글을 남겨보세요.</p>}
                   {comments.map(cmt => {
-                    const isMe = cmt.memId === currentUserId;
+                    const isMe      = cmt.userId === currentUserId;
+                    const canEdit   = isMe;
+                    const canDelete = isMe || isLeader;
                     return (
                       <div key={cmt.cmtId} className="flex items-start justify-between gap-2">
                         <div className="flex items-start gap-2 flex-1 min-w-0">
@@ -254,10 +260,21 @@ function HomeNewsCard({ news, currentUserId }: { news: NewsResponse; currentUser
                             </div>
                           )}
                         </div>
-                        {isMe && editingId !== cmt.cmtId && (
-                          <div className="shrink-0 flex gap-2 pt-0.5">
-                            <button onClick={() => { setEditingId(cmt.cmtId); setEditText(cmt.cmtContent); }} className="text-[11px] text-zinc-400 hover:text-[#3B3EFF]">수정</button>
-                            <button onClick={() => delMut.mutate(cmt.cmtId)} className="text-[11px] text-zinc-400 hover:text-red-400">삭제</button>
+                        {editingId !== cmt.cmtId && (canEdit || canDelete) && (
+                          <div className="shrink-0 flex items-center gap-2 pt-0.5">
+                            {canEdit && (
+                              <button
+                                onClick={() => { setEditingId(cmt.cmtId); setEditText(cmt.cmtContent); }}
+                                className="text-[11px] text-zinc-400 hover:text-[#3B3EFF] transition-colors"
+                              >수정</button>
+                            )}
+                            {canDelete && (
+                              <button
+                                onClick={() => delMut.mutate(cmt.cmtId)}
+                                disabled={delMut.isPending}
+                                className="text-[11px] text-zinc-400 hover:text-red-400 transition-colors disabled:opacity-40"
+                              >삭제</button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -291,8 +308,6 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="text-[15px] font-bold mb-3">{children}</h2>;
 }
-
-// ─── Rank Medal Icons ─────────────────────────────────────────────────────────
 
 function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) return <span className="text-base">🥇</span>;
@@ -360,7 +375,7 @@ export default function GroupHomePage() {
         <div className="space-y-2">
           {newsLoading && <div className="p-3 rounded-xl bg-zinc-50 animate-pulse h-14" />}
           {!newsLoading && news.length === 0 && <p className="text-[13px] text-zinc-400 py-2">최근 소식이 없습니다.</p>}
-          {news.map(item => <HomeNewsCard key={item.newsId} news={item} currentUserId={currentUserId} />)}
+          {news.map(item => <HomeNewsCard key={item.newsId} news={item} currentUserId={currentUserId} isLeader={isLeader} />)}
         </div>
       </section>
 
@@ -396,20 +411,20 @@ export default function GroupHomePage() {
               </Card>
             </div>
 
-            {/* 주력 미션 유형 */}
+            {/* ↓↓ 변경: 제목·설명 문구, 레이블 너비 w-16 → w-10 */}
             <Card>
-              <p className="text-[13px] font-semibold mb-1">주력 미션 유형</p>
+              <p className="text-[13px] font-semibold mb-1">미션 유형별 달성 현황</p>
               {member.typeCounts.length === 0 ? (
                 <p className="text-[12px] text-zinc-400">완료된 미션이 없습니다.</p>
               ) : (
                 <>
                   <p className="text-[11px] text-[#3B3EFF] mb-3">
-                    {member.myMemNic}님의 주력 분야는 <span className="font-bold">{member.topTypeLabel}</span> 미션입니다.
+                    {member.myMemNic}님이 가장 많이 달성한 유형은 <span className="font-bold">{member.topTypeLabel}</span> 미션입니다.
                   </p>
                   <div className="space-y-2">
                     {member.typeCounts.map(tc => (
                       <div key={tc.type} className="flex items-center gap-2">
-                        <span className="text-[12px] text-zinc-600 w-16 shrink-0">{tc.label}</span>
+                        <span className="text-[12px] text-zinc-600 w-10 shrink-0">{tc.label}</span>
                         <div className="flex-1 h-2 bg-zinc-200 rounded-full overflow-hidden">
                           <div className="h-full rounded-full bg-[#3B3EFF]"
                             style={{ width: `${(tc.count / maxTypeCount) * 100}%` }} />

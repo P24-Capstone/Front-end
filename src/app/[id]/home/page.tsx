@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -23,6 +23,7 @@ interface CommentResponse {
   cmtModDtm: string;
   newsId: number;
   memId: string;
+  userId: string;
   memNic?: string;
   userImg?: string;
 }
@@ -147,7 +148,7 @@ const TARGET_BG: Record<string, string> = {
 };
 
 function NewsIcon({ type }: { type: string }) {
-  const icons: Record<string, React.ReactNode> = {
+  const icons: Record<string, ReactNode> = {
     N: <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#d97706" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>,
     V: <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#3B3EFF" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
     E: <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2}><rect x="3" y="4" width="18" height="18" rx="2" strokeLinecap="round" /><path strokeLinecap="round" d="M16 2v4M8 2v4M3 10h18" /></svg>,
@@ -187,7 +188,8 @@ function HomeNewsCard({ news, currentUserId, isLeader }: { news: NewsResponse; c
       const { data } = await api.get(`/api/news/${news.newsId}/comments`);
       return data.data as CommentResponse[];
     },
-    enabled: showComments && canComment,
+    enabled: canComment,
+    staleTime: 30000,
   });
 
   const addMut = useMutation({
@@ -224,7 +226,9 @@ function HomeNewsCard({ news, currentUserId, isLeader }: { news: NewsResponse; c
           <div className="px-3 pb-2 border-t border-zinc-100">
             <button onClick={() => setShowComments(!showComments)} className="flex items-center gap-1 text-[12px] text-zinc-400 mt-2">
               <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-              {showComments ? '댓글 접어두기' : '댓글'}
+              {showComments
+                ? '댓글 접어두기'
+                : comments.length > 0 ? `댓글 (${comments.length})` : '댓글'}
             </button>
           </div>
           {showComments && (
@@ -317,11 +321,11 @@ function HomeNewsCard({ news, currentUserId, isLeader }: { news: NewsResponse; c
 
 // ─── Section Wrapper ──────────────────────────────────────────────────────────
 
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <div className={`bg-zinc-50 rounded-2xl p-4 ${className}`}>{children}</div>;
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionTitle({ children }: { children: ReactNode }) {
   return <h2 className="text-[15px] font-bold mb-3">{children}</h2>;
 }
 
@@ -431,18 +435,18 @@ export default function GroupHomePage() {
 
             {/* 주력 미션 유형 */}
             <Card>
-              <p className="text-[13px] font-semibold mb-1">주력 미션 유형</p>
+            <p className="text-[13px] font-semibold mb-1">미션 유형별 달성 현황</p>
               {member.typeCounts.length === 0 ? (
                 <p className="text-[12px] text-zinc-400">완료된 미션이 없습니다.</p>
               ) : (
                 <>
                   <p className="text-[11px] text-[#3B3EFF] mb-3">
-                    {member.myMemNic}님의 주력 분야는 <span className="font-bold">{member.topTypeLabel}</span> 미션입니다.
+                  {member.myMemNic}님이 가장 많이 달성한 유형은 <span className="font-bold">{member.topTypeLabel}</span> 미션입니다.
                   </p>
                   <div className="space-y-2">
                     {member.typeCounts.map(tc => (
                       <div key={tc.type} className="flex items-center gap-2">
-                        <span className="text-[12px] text-zinc-600 w-16 shrink-0">{tc.label}</span>
+                         <span className="text-[12px] text-zinc-600 w-10 shrink-0">{tc.label}</span>
                         <div className="flex-1 h-2 bg-zinc-200 rounded-full overflow-hidden">
                           <div className="h-full rounded-full bg-[#3B3EFF]"
                             style={{ width: `${(tc.count / maxTypeCount) * 100}%` }} />

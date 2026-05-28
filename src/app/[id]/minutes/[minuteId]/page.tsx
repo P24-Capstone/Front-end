@@ -68,12 +68,22 @@ function AudioPlayer({ src }: { src: string }) {
   const [playing, setPlaying]   = useState(false);
   const [current, setCurrent]   = useState(0);
   const [duration, setDuration] = useState(0);
+  const [loadError, setLoadError] = useState(false);
 
-  const toggle = () => {
+  const toggle = async () => {
     const el = audioRef.current;
     if (!el) return;
-    if (playing) { el.pause(); } else { el.play(); }
-    setPlaying(!playing);
+    if (playing) {
+      el.pause();
+      setPlaying(false);
+    } else {
+      try {
+        await el.play();
+        setPlaying(true);
+      } catch {
+        setPlaying(false);
+      }
+    }
   };
 
   const fmt = (s: number) => {
@@ -84,6 +94,15 @@ function AudioPlayer({ src }: { src: string }) {
 
   const pct = duration > 0 ? (current / duration) * 100 : 0;
 
+  if (loadError) {
+    return (
+      <div className="bg-white rounded-xl p-4">
+        <p className="text-[13px] font-semibold text-zinc-700 mb-2">원본 음성</p>
+        <p className="text-[12px] text-zinc-400">음성 파일을 불러올 수 없습니다.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-xl p-4">
       <p className="text-[13px] font-semibold text-zinc-700 mb-3">원본 음성</p>
@@ -93,6 +112,7 @@ function AudioPlayer({ src }: { src: string }) {
         onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime)}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
         onEnded={() => setPlaying(false)}
+        onError={() => setLoadError(true)}
         className="hidden"
       />
       <div className="flex items-center gap-3">

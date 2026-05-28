@@ -29,6 +29,7 @@ interface MissionData {
   memIds: string[];
   fileKeys: string[];
   memberInfos: MemberInfo[]; // 개인 미션 대상자 정보
+  allMembersFinished: boolean; // P: 모든 대상자 A/F/R / A: 모든 팀원 A/F
 }
 
 
@@ -129,7 +130,7 @@ function MemberMissionCard({ m, deadline, userStatus, onVerify, onViewPending }:
   const isDone = userStatus === 'completed' || userStatus === 'rejected' || userStatus === 'expired';
   return (
     <div className="bg-white rounded-lg px-4 py-3 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-full shrink-0 ${isDone ? 'bg-zinc-300' : 'bg-zinc-200'}`} />
+      <div className={`w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center shrink-0`} />
       <div className="flex-1 min-w-0">
         <Badges scope={scope} />
         <p className="text-[12px] font-medium text-zinc-800 leading-tight">{m.missionTitle}</p>
@@ -197,7 +198,7 @@ function LeaderCard({ m, onViewSubmissions, onEdit, onDelete }: {
   return (
     <div className="bg-white rounded-lg px-4 py-3">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-zinc-200 shrink-0" />
+        <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center shrink-0" />
         <div className="flex-1 min-w-0">
           <Badges scope={scope} />
           <p className="text-[12px] font-medium text-zinc-800 leading-tight">{m.missionTitle}</p>
@@ -344,9 +345,13 @@ export default function MissionsPage() {
   const leaderFilteredMissions = missions.filter((m) => {
     const scope = getScope(m.missionType);
     if (leaderScopeFilter !== '전체' && scope !== leaderScopeFilter) return false;
+
     const dl = getDeadlineText(m.missionEndDtm);
-    if (statusFilter === '진행 중') return !!dl;
-    if (statusFilter === '완료' || statusFilter === '만료') return !dl;
+    // 완료 = 기간 만료 OR 모든 멤버 최종 상태 도달
+    const isComplete = !dl || m.allMembersFinished;
+
+    if (statusFilter === '진행 중') return !isComplete;
+    if (statusFilter === '완료' || statusFilter === '만료') return isComplete;
     return true;
   });
 

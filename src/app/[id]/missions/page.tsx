@@ -387,23 +387,29 @@ export default function MissionsPage() {
         {/* 헤더: 상태 탭(1차) + 모드 토글 */}
         <div className="sticky top-0 z-10 bg-white -mx-4">
           <div className="flex border-b border-zinc-200 items-center">
-            {(['전체', '진행 중', '완료'] as StatusFilter[]).map((t) => (
-              <button key={t} onClick={() => setStatusFilter(t)}
-                className={`flex-1 flex justify-center text-[13px] font-medium transition-colors ${statusFilter === t ? 'text-zinc-900' : 'text-zinc-400'}`}>
-                <span className={`inline-block py-2.5 -mb-px ${statusFilter === t ? 'border-b-2 border-zinc-900' : ''}`}>{t}</span>
-              </button>
-            ))}
+            {(['전체', '진행 중', '완료'] as StatusFilter[]).map((t) => {
+              const isActive = t === '완료'
+                ? (statusFilter === '완료' || statusFilter === '만료')
+                : statusFilter === t;
+              return (
+                <button key={t} onClick={() => setStatusFilter(t)}
+                  className={`flex-1 flex justify-center text-[13px] font-medium transition-colors ${isActive ? 'text-zinc-900' : 'text-zinc-400'}`}>
+                  <span className={`inline-block py-2.5 -mb-px ${isActive ? 'border-b-2 border-zinc-900' : ''}`}>{t}</span>
+                </button>
+              );
+            })}
             <ModeToggle />
           </div>
-          {/* 범위 필터 (2차) */}
-          <div className="flex gap-2 px-4 py-2 border-b border-zinc-100 bg-white">
-            {(['전체', '공통', '개인'] as ScopeTab[]).map((s) => (
-              <button key={s} onClick={() => setLeaderScopeFilter(s)}
-                className={`text-[12px] px-3 py-1 rounded-full font-medium transition-all ${
-                  leaderScopeFilter === s ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500'
-                }`}>
-                {s}
-              </button>
+          {/* 범위 필터 (2차) — StatusBar 형태 */}
+          <div className="flex items-center justify-center py-2 border-b border-zinc-100 bg-white">
+            {(['전체', '공통', '개인'] as ScopeTab[]).map((s, i) => (
+              <div key={s} className="flex items-center">
+                <button onClick={() => setLeaderScopeFilter(s)}
+                  className={`text-[13px] px-2 ${leaderScopeFilter === s ? 'font-semibold text-zinc-900' : 'text-zinc-400'}`}>
+                  {s}
+                </button>
+                {i < 2 && <span className="text-zinc-300 text-[13px]">|</span>}
+              </div>
             ))}
           </div>
         </div>

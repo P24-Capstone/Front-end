@@ -11,6 +11,7 @@ interface MeetingRecordResponse {
   meetingId: number;
   teamId: string;
   recFileKey: string;
+  recFileUrl: string;
   status: string;           // P(처리중) | C(완료) | F(실패)
   meetingTitle: string | null;
   fullScript: string | null;
@@ -463,7 +464,7 @@ export default function MinuteDetailPage() {
           {isFailed && <FailedBanner onRetry={() => retryMutation.mutate()} isRetrying={retryMutation.isPending} />}
 
           {/* 원본 음성 플레이어 */}
-          {record.recFileKey && <AudioPlayer src={record.recFileKey} />}
+          {record.recFileUrl && <AudioPlayer src={record.recFileUrl} />}
 
           {/* 메타 정보 */}
           <div className="bg-white rounded-xl overflow-hidden">

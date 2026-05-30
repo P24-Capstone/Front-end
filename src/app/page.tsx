@@ -48,7 +48,7 @@ export default function LandingPage() {
 
         {/* Header */}
         <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
-          <span className="text-[17px] font-bold tracking-tight">CrewWise</span>
+          <span className="text-[17px] font-bold tracking-tight">Crewise</span>
           <div className="flex items-center gap-2">
             <Link
               href="/auth/signup"
@@ -111,7 +111,7 @@ export default function LandingPage() {
 
         {/* Footer */}
         <footer className="py-3 px-4 border-t border-zinc-100 text-center">
-          <p className="text-[11px] text-zinc-400">© 2026 CrewWise Corp. All Rights Reserved</p>
+          <p className="text-[11px] text-zinc-400">© 2026 Crewise Corp. All Rights Reserved</p>
         </footer>
 
       </div>

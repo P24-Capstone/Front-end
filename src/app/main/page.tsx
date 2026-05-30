@@ -648,7 +648,7 @@ export default function MainPage() {
       )}
       {/* 헤더 */}
       <header className="flex items-center justify-between px-4 h-[52px] shrink-0 border-b border-zinc-100 bg-white">
-        <span className="text-[17px] font-bold tracking-tight">CrewWise</span>
+        <span className="text-[17px] font-bold tracking-tight">Crewise</span>
         <div className="flex items-center gap-2">
           <button onClick={() => setMenuOpen(true)} className="w-7 h-7 rounded-full bg-[#C4B5FD] flex items-center justify-center shrink-0 overflow-hidden">
             {profileImg ? (
@@ -915,7 +915,7 @@ export default function MainPage() {
 
       {/* 푸터 */}
       <footer className="py-3 px-4 border-t border-zinc-100 text-center shrink-0">
-        <p className="text-[11px] text-zinc-400">© 2026 CrewWise Corp. All Rights Reserved</p>
+        <p className="text-[11px] text-zinc-400">© 2026 Crewise Corp. All Rights Reserved</p>
       </footer>
 
       {/* 추천코드로 가입 플로팅 버튼 */}

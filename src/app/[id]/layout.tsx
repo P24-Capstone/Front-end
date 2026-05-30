@@ -18,7 +18,7 @@ export default async function GroupLayout({
         {children}
       </main>
       <footer className="py-3 px-4 border-t border-zinc-100 text-center">
-        <p className="text-[11px] text-zinc-400">© 2026 CrewWise Corp. All Rights Reserved</p>
+        <p className="text-[11px] text-zinc-400">© 2026 Crewise Corp. All Rights Reserved</p>
       </footer>
     </div>
   );
